@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { Sky } from 'three/examples/jsm/objects/Sky.js'
 
-const ROAD_HALF = 5.7
+const ROAD_HALF = 9.5
 const ROAD_LENGTH = 30000
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
 const palette = [0xd45142, 0xe1b346, 0x4a7f9c, 0xe4e1d8, 0x57745d, 0x765886]
@@ -115,7 +115,7 @@ function createWheel(x, z, radius = .42) {
   return wheel
 }
 
-function createVehicle(type = 'sedan', color = 0x1666b3, player = false) {
+function createVehicle(type = 'sedan', color = 0xe8e8e0, player = false) {
   const group = new THREE.Group()
   const wheels = []
   const glass = mat(0x314a55, .24, .15)
@@ -141,38 +141,52 @@ function createVehicle(type = 'sedan', color = 0x1666b3, player = false) {
     group.add(meshBox(2.02, .38, 1.85, 0x2d3334, 0, 1.02, 1.16))
     addWheels(-1.48, 1.47)
   } else {
-    group.add(roundedBox(2.15, .68, 4.35, color, .18, 0, .82, 0))
-    group.add(roundedBox(1.92, .92, 2.42, color, .16, 0, 1.47, .02))
-    const frontGlass = meshBox(1.72, .62, .07, 0x314a55, 0, 1.65, -1.22)
+    group.add(roundedBox(2.15, .68, 4, color, .16, 0, .82, 0))
+    group.add(roundedBox(1.92, 1.05, 2.2, color, .14, 0, 1.52, .02))
+    const frontGlass = meshBox(1.72, .68, .07, 0x314a55, 0, 1.7, -1.12)
     frontGlass.material = glass
     frontGlass.rotation.x = -.18
     group.add(frontGlass)
     const rearGlass = frontGlass.clone()
-    rearGlass.position.z = 1.29
+    rearGlass.position.z = 1.17
     rearGlass.rotation.x = .18
     group.add(rearGlass)
-    group.add(meshBox(.07, .58, 1.7, 0x3d5a64, -1, 1.62, .04))
-    group.add(meshBox(.07, .58, 1.7, 0x3d5a64, 1, 1.62, .04))
-    group.add(meshBox(1.5, .13, .08, 0xffe1a0, 0, .82, -2.21))
-    group.add(meshBox(1.55, .13, .08, 0xb52f38, 0, .82, 2.21))
-    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, -2.22))
-    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, 2.22))
-    group.add(meshBox(.58, .18, .04, 0xe9edf0, 0, .73, 2.26))
+    for (const side of [-1, 1]) {
+      const sideGlass = meshBox(.055, .66, 1.62, 0x314a55, side * .975, 1.69, .03)
+      sideGlass.material = glass
+      sideGlass.rotation.z = side * -.035
+      group.add(sideGlass)
+      group.add(meshBox(.065, .71, .09, color, side * 1.005, 1.68, 0))
+    }
+    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, -2.04))
+    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, 2.04))
+    group.add(meshBox(.58, .18, .04, 0xe9edf0, 0, .73, 2.08))
     for (const x of [-1.08, 1.08]) {
       const mirror = roundedBox(.34, .18, .42, color, .07, x, 1.52, -.76)
       group.add(mirror)
     }
-    const lowerGrille = meshBox(1.05, .22, .05, 0x172126, 0, .62, -2.27)
+    const lowerGrille = meshBox(1.05, .22, .05, 0x172126, 0, .62, -2.08)
     group.add(lowerGrille)
     for (const x of [-.67, .67]) {
-      const lamp = meshBox(.5, .24, .06, 0xffe5a4, x, .84, -2.27)
-      lamp.material = new THREE.MeshStandardMaterial({ color: 0xffe6aa, emissive: 0x5f4618, emissiveIntensity: .65, roughness: .3 })
-      group.add(lamp)
+      const headlamp = new THREE.Mesh(
+        new THREE.SphereGeometry(.18, 18, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffe6aa, emissive: 0x5f4618, emissiveIntensity: .65, roughness: .25 }),
+      )
+      headlamp.scale.set(1.35, .78, .38)
+      headlamp.position.set(x, .84, -2.085)
+      group.add(headlamp)
+      const taillamp = new THREE.Mesh(
+        new THREE.SphereGeometry(.17, 18, 12),
+        new THREE.MeshStandardMaterial({ color: 0xb52f38, emissive: 0x5a1015, emissiveIntensity: .5, roughness: .3 }),
+      )
+      taillamp.scale.set(1.4, .72, .38)
+      taillamp.position.set(x, .84, 2.085)
+      group.add(taillamp)
     }
-    addWheels(-1.42, 1.4)
+    addWheels(-1.3, 1.29)
   }
   if (player) {
-    const rearBadge = meshBox(.35, .06, .04, 0xc7ccce, 0, .95, 2.27)
+    const rearBadge = meshBox(.35, .06, .04, 0xc7ccce, 0, .95, 2.09)
     group.add(rearBadge)
   }
   group.userData.wheels = wheels
@@ -240,6 +254,15 @@ export function createGame(canvas, callbacks) {
   sky.material.uniforms.sunPosition.value.copy(skySun)
   scene.add(sky)
   const camera = new THREE.PerspectiveCamera(62, 1, .1, 420)
+  scene.add(camera)
+  const cockpit = new THREE.Group()
+  const dashboard = roundedBox(2.6, .28, .7, 0x171d20, .08, 0, -.83, -1.45)
+  cockpit.add(dashboard)
+  const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 10, 28), mat(0x111619, .75, .12))
+  steeringWheel.position.set(-.38, -.62, -1.08)
+  cockpit.add(steeringWheel)
+  cockpit.visible = false
+  camera.add(cockpit)
   scene.add(new THREE.HemisphereLight(0xc9edff, 0x4f5944, 2.3))
   const sun = new THREE.DirectionalLight(0xffe5b1, 3.8)
   sun.position.set(-24, 42, 18)
@@ -269,10 +292,12 @@ export function createGame(canvas, callbacks) {
   scene.add(leftTerrain, rightTerrain)
 
   const roadMarks = []
-  for (let i = 0; i < 82; i += 1) {
-    const mark = meshBox(.14, .035, 4.2, 0xe9e5d5)
-    scene.add(mark)
-    roadMarks.push({ mesh: mark, s: i * 9 })
+  for (const offset of [0, -ROAD_HALF / 2, ROAD_HALF / 2]) {
+    for (let i = 0; i < 82; i += 1) {
+      const mark = meshBox(.14, .035, 4.2, offset === 0 ? 0xe8c95c : 0xe9e5d5)
+      scene.add(mark)
+      roadMarks.push({ mesh: mark, s: i * 9, offset })
+    }
   }
   const edgeMarks = []
   for (let i = 0; i < 96; i += 1) {
@@ -299,16 +324,16 @@ export function createGame(canvas, callbacks) {
     group.add(meshBox(.14, .85, .14, 0x72787a, 0, .4, 0))
     group.add(meshBox(.16, .24, 5.6, 0xb9bdba, 0, .77, 0))
     scene.add(group)
-    guardrails.push({ mesh: group, s: 30 + Math.floor(i / 2) * 10, offset: side * 6.25 })
+    guardrails.push({ mesh: group, s: 30 + Math.floor(i / 2) * 10, offset: side * (ROAD_HALF + .55) })
   }
 
   const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
   const state = {
     running: false, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
     offset: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0,
-    popup: '', popupUntil: 0, time: 0, traffic: [], pickups: [], distance: 0,
+    popup: '', popupUntil: 0, time: 0, traffic: [], pickups: [], distance: 0, cameraMode: 'chase',
   }
-  let player = createVehicle('sedan', 0x1269b5, true)
+  let player = createVehicle('sedan', 0xe8e8e0, true)
   scene.add(player)
   let previousTime = performance.now()
   let animationFrame = 0
@@ -327,8 +352,8 @@ export function createGame(canvas, callbacks) {
       if (item.s < state.progress - 25) item.s += spacing + Math.random() * spread
     }
     for (const mark of roadMarks) {
-      recycle(mark, roadMarks.length * 9)
-      placeObject(mark.mesh, mark.s, 0, .035)
+      recycle(mark, 82 * 9)
+      placeObject(mark.mesh, mark.s, mark.offset, .035)
     }
     for (const edge of edgeMarks) {
       recycle(edge, 48 * 7)
@@ -355,7 +380,8 @@ export function createGame(canvas, callbacks) {
       const type = i % 6 === 0 ? 'truck' : i % 4 === 0 ? 'pickup' : 'sedan'
       const mesh = createVehicle(type, palette[i % palette.length])
       scene.add(mesh)
-      state.traffic.push({ mesh, type, s: 90 + i * 52 + Math.random() * 25, offset: (Math.random() - .5) * 5.2, speed: 10 + Math.random() * 16, passed: false })
+      const trafficLanes = [-ROAD_HALF * .74, -ROAD_HALF * .25, ROAD_HALF * .25, ROAD_HALF * .74]
+      state.traffic.push({ mesh, type, s: 90 + i * 52 + Math.random() * 25, offset: trafficLanes[Math.floor(Math.random() * trafficLanes.length)], speed: 10 + Math.random() * 16, passed: false })
     }
   }
 
@@ -369,7 +395,7 @@ export function createGame(canvas, callbacks) {
       if (!fuel) mesh.rotation.z = Math.PI / 2
       mesh.castShadow = true
       scene.add(mesh)
-      state.pickups.push({ mesh, fuel, s: 130 + i * 105, offset: (Math.random() - .5) * 7 })
+      state.pickups.push({ mesh, fuel, s: 130 + i * 105, offset: (Math.random() - .5) * ROAD_HALF * 1.6 })
     }
   }
 
@@ -397,13 +423,13 @@ export function createGame(canvas, callbacks) {
   function reset(ride = 'sedan') {
     scene.remove(player)
     const type = ride === 'pickup' ? 'pickup' : 'sedan'
-    const color = ride === 'rally' ? 0xd74636 : ride === 'pickup' ? 0xd66a3d : 0x1269b5
+    const color = ride === 'rally' ? 0xd74636 : ride === 'pickup' ? 0xd66a3d : 0xe8e8e0
     player = createVehicle(type, color, true)
     scene.add(player)
     Object.assign(state, {
       running: true, crashed: false, ride, progress: 20, speed: 0, offset: 0,
       lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0, popup: '',
-      popupUntil: 0, time: 0, distance: 0,
+      popupUntil: 0, time: 0, distance: 0, cameraMode: 'chase',
     })
     Object.keys(controls).forEach((key) => { controls[key] = false })
     spawnTraffic()
@@ -426,7 +452,8 @@ export function createGame(canvas, callbacks) {
   function recycleTraffic(vehicle) {
     const farthest = Math.max(state.progress + 250, ...state.traffic.map((item) => item.s))
     vehicle.s = farthest + 55 + Math.random() * 90
-    vehicle.offset = (Math.random() - .5) * 5.2
+    const trafficLanes = [-ROAD_HALF * .74, -ROAD_HALF * .25, ROAD_HALF * .25, ROAD_HALF * .74]
+    vehicle.offset = trafficLanes[Math.floor(Math.random() * trafficLanes.length)]
     vehicle.speed = 9 + Math.random() * 19
     vehicle.passed = false
   }
@@ -458,7 +485,7 @@ export function createGame(canvas, callbacks) {
     state.lateralSpeed += steeringForce * dt
     state.lateralSpeed *= Math.exp(-(offroad ? 2.1 : 4.2) * dt)
     state.offset += state.lateralSpeed * dt * 2.5
-    state.offset = clamp(state.offset, -10.5, 10.5)
+    state.offset = clamp(state.offset, -15.5, 15.5)
 
     const suspension = Math.sin(state.time * (5 + state.speed * .3)) * Math.min(.07, state.speed * .0015)
     placeObject(player, state.progress, state.offset, .08 + suspension)
@@ -498,24 +525,39 @@ export function createGame(canvas, callbacks) {
           showPopup('COIN  +50')
         }
         pickup.s += 780
-        pickup.offset = (Math.random() - .5) * 7
+        pickup.offset = (Math.random() - .5) * ROAD_HALF * 1.6
         beep(pickup.fuel ? 330 : 820, .1, .02)
       } else if (gap < -30) {
         pickup.s += 780
-        pickup.offset = (Math.random() - .5) * 7
+        pickup.offset = (Math.random() - .5) * ROAD_HALF * 1.6
       }
     }
 
-    if (Math.abs(state.offset) > 8.9 || (Math.abs(state.offset) > 7.5 && state.speed > 25)) crash('LOST CONTROL')
+    if (Math.abs(state.offset) > 14.5 || (Math.abs(state.offset) > 12.5 && state.speed > 25)) crash('LOST CONTROL')
     if (state.fuel <= 0 && state.speed < .25) crash('OUT OF FUEL')
     if (state.progress > ROAD_LENGTH - 400) crash('SUMMIT COMPLETE')
     if (state.popup && state.time > state.popupUntil) state.popup = ''
   }
 
   function updateCamera(dt) {
-    const backS = Math.max(0, state.progress - 10.5)
-    const cameraTargetPosition = roadPosition(backS, state.offset * .45 + 2.15, 4.8)
-    const lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
+    let cameraTargetPosition
+    let lookTarget
+    if (state.cameraMode === 'hood') {
+      cameraTargetPosition = roadPosition(state.progress, state.offset, 1.1)
+      lookTarget = roadPosition(state.progress + 15, state.offset * .3, 1)
+    } else if (state.cameraMode === 'interior') {
+      cameraTargetPosition = roadPosition(state.progress, state.offset - .3, 1.55)
+      lookTarget = roadPosition(state.progress + 20, state.offset * .15, 1.35)
+    } else {
+      const backS = Math.max(0, state.progress - 10.5)
+      cameraTargetPosition = roadPosition(backS, state.offset * .45 + 2.15, 4.8)
+      lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
+    }
+    const interior = state.cameraMode === 'interior'
+    player.visible = !interior
+    cockpit.visible = interior
+    const steerInput = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
+    steeringWheel.rotation.z += ((-steerInput * .65) - steeringWheel.rotation.z) * (1 - Math.exp(-8 * dt))
     camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-7 * dt))
     camera.lookAt(lookTarget)
     const targetFov = controls.boost && state.running ? 68 : 62
@@ -539,6 +581,13 @@ export function createGame(canvas, callbacks) {
   }
 
   function key(event, down) {
+    if (event.code === 'KeyC' && down && !event.repeat) {
+      event.preventDefault()
+      const modes = ['chase', 'hood', 'interior']
+      state.cameraMode = modes[(modes.indexOf(state.cameraMode) + 1) % modes.length]
+      showPopup(`CAMERA: ${state.cameraMode.toUpperCase()}`)
+      return
+    }
     const mapping = {
       ArrowUp: 'gas', KeyW: 'gas', Space: 'boost', ArrowDown: 'brake', KeyS: 'brake',
       ArrowLeft: 'steerLeft', KeyA: 'steerLeft', ArrowRight: 'steerRight', KeyD: 'steerRight',
