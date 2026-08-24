@@ -1,15 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createGame } from './game.js'
 
-const INITIAL_HUD = { distance: 0, fuel: 100, coins: 0, bonus: 0, speed: 0, popup: '' }
+const INITIAL_HUD = { distance: 0, fuel: 100, coins: 0, bonus: 0, speed: 0, passed: 0, popup: '' }
+const RIDES = [
+  { id: 'hatch', name: 'Hatchback', detail: 'Light & quick' },
+  { id: 'van', name: 'Van', detail: 'Stable & calm' },
+  { id: 'pickup', name: 'Pickup', detail: 'Heavy & strong' },
+]
 
 function App() {
   const canvasRef = useRef(null)
   const gameRef = useRef(null)
   const [hud, setHud] = useState(INITIAL_HUD)
   const [phase, setPhase] = useState('ready')
-  const [best, setBest] = useState(() => Number(localStorage.getItem('mehran-best') || 0))
+  const [best, setBest] = useState(() => Number(localStorage.getItem('highway-rush-best') || 0))
   const [muted, setMuted] = useState(false)
+  const [ride, setRide] = useState('hatch')
 
   useEffect(() => {
     const game = createGame(canvasRef.current, {
@@ -18,7 +24,7 @@ function App() {
         setPhase('crashed')
         setBest((previous) => {
           const next = Math.max(previous, distance)
-          localStorage.setItem('mehran-best', String(next))
+          localStorage.setItem('highway-rush-best', String(next))
           return next
         })
       },
@@ -32,13 +38,13 @@ function App() {
   const start = useCallback(() => {
     setHud(INITIAL_HUD)
     setPhase('playing')
-    gameRef.current?.start()
-  }, [])
+    gameRef.current?.start(ride)
+  }, [ride])
 
   useEffect(() => {
     if (phase !== 'ready') return undefined
     const beginOnKey = (event) => {
-      if (['ArrowRight', 'ArrowLeft', 'ArrowUp', 'ArrowDown', 'KeyA', 'KeyD', 'Space'].includes(event.code)) start()
+      if (['ArrowRight', 'ArrowLeft', 'KeyA', 'KeyD', 'Space'].includes(event.code)) start()
     }
     window.addEventListener('keydown', beginOnKey)
     return () => window.removeEventListener('keydown', beginOnKey)
@@ -54,7 +60,7 @@ function App() {
 
   return (
     <main className="game-shell">
-      <canvas ref={canvasRef} aria-label="Mehran Hill Climb game world" />
+      <canvas ref={canvasRef} aria-label="Highway Rush 3D game world" />
 
       <section className="hud" aria-live="polite">
         <div className="score-card">
@@ -67,7 +73,7 @@ function App() {
           <div className="fuel-track"><i style={{ width: `${hud.fuel}%` }} /></div>
         </div>
         <div className="stats-card">
-          <span>Rs. {hud.coins}</span>
+          <span>{hud.passed} PASSED</span>
           <span>{Math.round(hud.speed)} km/h</span>
           <button className="sound" onClick={() => setMuted((value) => !value)} aria-label="Toggle sound">{muted ? 'SOUND OFF' : 'SOUND ON'}</button>
         </div>
@@ -77,34 +83,44 @@ function App() {
 
       {phase === 'ready' && (
         <section className="modal intro">
-          <div className="crescent-mark" aria-hidden="true"><i /><span>★</span></div>
-          <p className="eyebrow">PAKISTAN KI SHAAN</p>
-          <h1>MEHRAN<br/><em>HILL CLIMB</em></h1>
-          <p className="tagline">GT Road se paharon tak — kitni door jao ge?</p>
+          <p className="eyebrow">ENDLESS TRAFFIC RUN</p>
+          <h1>HIGHWAY<br/><em>RUSH</em></h1>
+          <p className="tagline">Read the traffic. Find the gap. Keep moving.</p>
+          <div className="ride-picker" aria-label="Choose your vehicle">
+            {RIDES.map((option) => (
+              <button key={option.id} className={ride === option.id ? 'selected' : ''} onClick={() => setRide(option.id)}>
+                <b>{option.name}</b><small>{option.detail}</small>
+              </button>
+            ))}
+          </div>
           <button className="primary" onClick={start}>START ENGINE <span>›</span></button>
-          <div className="howto"><span>◀ BRAKE / REVERSE</span><span>GAS / FLIP ▶</span></div>
+          <div className="howto"><span>↑ ↓ CHANGE LANE</span><span>← BRAKE</span><span>GAS →</span></div>
         </section>
       )}
 
       {phase === 'crashed' && (
         <section className="modal game-over">
-          <p className="eyebrow">ARAY YAAR!</p>
-          <h2>MEHRAN<br/>PALAT GAYI</h2>
-          <p><b>{hud.distance.toFixed(2)} km</b> ka safar</p>
+          <p className="eyebrow">RUN OVER</p>
+          <h2>TRAFFIC<br/>WINS</h2>
+          <p><b>{hud.distance.toFixed(2)} km</b> travelled</p>
           <p className="bonus-line">Freestyle bonus: {hud.bonus}</p>
-          <button className="primary" onClick={start}>DOBARA TRY KARO! <span>↻</span></button>
+          <button className="primary" onClick={start}>TRY AGAIN <span>↻</span></button>
         </section>
       )}
 
       <section className="controls" aria-label="Driving controls">
         <button data-control="brake" className="pedal brake" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
-          <span>◀</span><b>BRAKE</b><small>REVERSE</small>
+          <span>◀</span><b>BRAKE</b><small>DECELERATE</small>
         </button>
         <button data-control="gas" className="pedal gas" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
           <span>▶</span><b>GAS</b><small>ACCELERATE</small>
         </button>
       </section>
-      <div className="landscape-hint">↻ Rotate your phone for the full GT Road experience</div>
+      <section className="lane-controls" aria-label="Lane controls">
+        <button data-control="laneUp" onPointerDown={handleControl}>↑<small>LANE</small></button>
+        <button data-control="laneDown" onPointerDown={handleControl}>↓<small>LANE</small></button>
+      </section>
+      <div className="landscape-hint">Rotate your phone for the full highway view</div>
     </main>
   )
 }

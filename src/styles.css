@@ -1,14 +1,14 @@
 @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Montserrat:wght@500;700;900&display=swap');
 
-:root { font-family: Montserrat, system-ui, sans-serif; color: #fff; background: #102b20; font-synthesis: none; }
+:root { font-family: Montserrat, system-ui, sans-serif; color: #fff; background: #142631; font-synthesis: none; }
 * { box-sizing: border-box; }
 html, body, #root { width: 100%; height: 100%; margin: 0; overflow: hidden; }
 body { touch-action: none; user-select: none; overscroll-behavior: none; }
 button { font: inherit; }
-.game-shell { position: relative; width: 100%; height: 100%; min-height: 360px; overflow: hidden; background: #eeb75b; }
+.game-shell { position: relative; width: 100%; height: 100%; min-height: 360px; overflow: hidden; background: #d9a85e; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .hud { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); display: grid; grid-template-columns: 170px minmax(170px, 300px) 180px; align-items: start; justify-content: space-between; pointer-events: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.18)); }
-.score-card, .stats-card, .fuel-wrap { background: rgba(2,39,20,.9); border: 2px solid rgba(255,255,255,.45); border-radius: 13px; padding: 9px 13px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.1); }
+.score-card, .stats-card, .fuel-wrap { background: rgba(17,43,57,.93); border: 2px solid rgba(255,255,255,.4); border-radius: 13px; padding: 9px 13px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.1); }
 .score-card { display: flex; flex-direction: column; }
 .label, .best, .fuel-title { font-size: 9px; font-weight: 900; letter-spacing: .12em; color: #f8db91; }
 .score-card strong { font-family: 'Black Ops One', Impact, sans-serif; font-size: 25px; line-height: 1.05; letter-spacing: .02em; }
@@ -23,18 +23,21 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .sound { pointer-events: auto; color: #f8db91; background: none; border: 0; padding: 2px; cursor: pointer; font-size: 7px; font-weight: 900; letter-spacing: .08em; }
 .fuel-icon { display:inline-block; width:8px; height:9px; margin-right:2px; border:1px solid currentColor; border-radius:1px; vertical-align:-1px; position:relative; }
 .fuel-icon::after { content:''; position:absolute; width:3px; height:5px; right:-4px; top:1px; border:1px solid currentColor; border-left:0; border-radius:0 2px 2px 0; }
-.modal { position: absolute; z-index: 5; left: 50%; top: 48%; transform: translate(-50%,-50%); width: min(430px, 74vw); padding: 21px 34px 23px; text-align: center; background: linear-gradient(145deg,rgba(1,65,28,.96),rgba(1,48,22,.96)); border: 3px solid #f6d16f; border-radius: 22px; box-shadow: 0 12px 0 rgba(41,22,5,.25), 0 28px 60px rgba(20,14,3,.32), inset 0 0 0 3px rgba(255,255,255,.12); }
+.modal { position: absolute; z-index: 5; left: 50%; top: 47%; transform: translate(-50%,-50%); width: min(470px, 76vw); padding: 18px 34px 20px; text-align: center; background: rgba(19,48,65,.97); border: 3px solid #f0b84d; border-radius: 18px; box-shadow: 0 12px 0 rgba(22,27,31,.28), 0 28px 60px rgba(20,24,28,.35), inset 0 0 0 3px rgba(255,255,255,.08); }
 .modal::before, .modal::after { content:''; position:absolute; top:18px; bottom:18px; width:8px; border-block:2px solid #f6d16f; opacity:.55; }
 .modal::before { left:12px; border-left:2px solid #f6d16f; border-radius:8px 0 0 8px; }
 .modal::after { right:12px; border-right:2px solid #f6d16f; border-radius:0 8px 8px 0; }
 .eyebrow { margin: 0 0 5px; color: #f4c64c; font-size: 11px; letter-spacing: .25em; font-weight: 900; }
-.modal h1, .modal h2 { margin: 0; font: 400 clamp(38px,7vw,67px)/.82 'Black Ops One', Impact, sans-serif; letter-spacing: .02em; text-shadow: 0 4px 0 #002912; }
+.modal h1, .modal h2 { margin: 0; font: 400 clamp(38px,7vw,67px)/.82 'Black Ops One', Impact, sans-serif; letter-spacing: .02em; text-shadow: 0 4px 0 #0b222f; }
 .modal h1 em { color: #f4c64c; font-style: normal; font-size: .77em; }
 .modal h2 { color:#f7d56c; font-size:clamp(35px,6vw,58px); }
-.tagline { margin: 14px auto 16px; font-size: 12px; opacity: .86; }
-.crescent-mark { position:absolute; right:27px; top:24px; width:24px; height:24px; border-radius:50%; background:#fff; transform:rotate(-16deg); }
-.crescent-mark i { position:absolute; width:21px; height:21px; left:7px; top:-2px; border-radius:50%; background:#064a24; }
-.crescent-mark span { font-size:8px; position:absolute; color:white; left:19px; top:-5px; transform:rotate(16deg); }
+.tagline { margin: 10px auto 12px; font-size: 11px; opacity: .86; }
+.ride-picker { display:grid; grid-template-columns:repeat(3,1fr); gap:7px; margin:0 auto 12px; max-width:350px; }
+.ride-picker button { color:rgba(255,255,255,.72); background:#102f40; border:1px solid rgba(255,255,255,.24); border-radius:7px; padding:7px 4px; cursor:pointer; }
+.ride-picker button.selected { color:#14351f; background:#f2ca5e; border-color:#fff1b5; }
+.ride-picker b,.ride-picker small { display:block; }
+.ride-picker b { font-size:10px; text-transform:uppercase; }
+.ride-picker small { margin-top:2px; font-size:6px; font-weight:700; opacity:.7; }
 .primary { position:relative; z-index:2; border: 2px solid #fff3bf; border-radius: 10px; padding: 11px 24px; min-width: 230px; color:#113b22; background: linear-gradient(#ffe188,#eab33d); font-weight: 900; font-size: 13px; box-shadow: 0 4px 0 #9a6a14; cursor: pointer; }
 .primary:active { transform:translateY(3px); box-shadow:0 1px 0 #9a6a14; }
 .primary span { margin-left:14px; font-size:18px; }
@@ -43,14 +46,18 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .game-over p b { color:#f7d56c; font-size:18px; }
 .bonus-line { opacity:.7; margin-top:0!important; }
 .controls { position:absolute; z-index:6; inset:auto max(22px,env(safe-area-inset-right)) max(17px,env(safe-area-inset-bottom)) max(22px,env(safe-area-inset-left)); display:flex; justify-content:space-between; pointer-events:none; }
-.pedal { pointer-events:auto; width:clamp(104px,16vw,158px); height:clamp(70px,13vh,102px); color:white; border:3px solid rgba(255,255,255,.6); border-radius:20px; background:linear-gradient(145deg,rgba(26,50,38,.88),rgba(3,39,20,.94)); box-shadow:0 7px 0 rgba(0,0,0,.24),inset 0 0 0 3px rgba(255,255,255,.08); display:grid; grid-template-columns:35px 1fr; grid-template-rows:1fr 1fr; align-items:end; padding:13px 12px; cursor:pointer; touch-action:none; }
+.lane-controls { position:absolute; z-index:7; left:50%; bottom:max(18px,env(safe-area-inset-bottom)); transform:translateX(-50%); display:flex; gap:7px; }
+.lane-controls button { width:58px; height:52px; border:2px solid rgba(255,255,255,.55); border-radius:12px; color:#f5ce61; background:rgba(17,48,64,.94); font-size:22px; font-weight:900; box-shadow:0 5px 0 rgba(0,0,0,.25); touch-action:none; }
+.lane-controls button:active { transform:translateY(3px); box-shadow:0 2px 0 rgba(0,0,0,.25); }
+.lane-controls small { display:block; color:white; font-size:6px; letter-spacing:.12em; }
+.pedal { pointer-events:auto; width:clamp(104px,16vw,158px); height:clamp(70px,13vh,102px); color:white; border:3px solid rgba(255,255,255,.6); border-radius:20px; background:linear-gradient(145deg,rgba(37,57,68,.94),rgba(17,39,51,.97)); box-shadow:0 7px 0 rgba(0,0,0,.24),inset 0 0 0 3px rgba(255,255,255,.08); display:grid; grid-template-columns:35px 1fr; grid-template-rows:1fr 1fr; align-items:end; padding:13px 12px; cursor:pointer; touch-action:none; }
 .pedal span { grid-row:1/3; font-size:30px; align-self:center; color:#f5ce61; }
 .pedal b { font:400 18px 'Black Ops One',Impact; text-align:left; }
 .pedal small { font-size:7px; font-weight:900; letter-spacing:.08em; opacity:.65; align-self:start; text-align:left; }
-.pedal.gas { border-color:#f2d371; background:linear-gradient(145deg,rgba(2,86,38,.94),rgba(1,51,23,.96)); }
+.pedal.gas { border-color:#f2c35f; background:linear-gradient(145deg,rgba(24,91,121,.96),rgba(13,52,72,.97)); }
 .pedal:active { transform:translateY(5px); box-shadow:0 2px 0 rgba(0,0,0,.3); filter:brightness(1.18); }
-.trick-popup { position:absolute; z-index:7; left:50%; top:28%; transform:translateX(-50%) rotate(-3deg); font:400 clamp(25px,5vw,48px) 'Black Ops One',Impact; color:#ffdb5a; text-shadow:0 4px 0 #01411c,2px 0 0 #01411c,-2px 0 0 #01411c; animation:pop .45s ease-out both; }
+.trick-popup { position:absolute; z-index:7; left:50%; top:28%; transform:translateX(-50%) rotate(-3deg); font:400 clamp(25px,5vw,48px) 'Black Ops One',Impact; color:#ffcf5a; text-shadow:0 4px 0 #173b50,2px 0 0 #173b50,-2px 0 0 #173b50; animation:pop .45s ease-out both; }
 @keyframes pop { from { transform:translateX(-50%) scale(.3) rotate(-8deg); opacity:0; } 70% { transform:translateX(-50%) scale(1.15) rotate(2deg); } }
 .landscape-hint { display:none; }
-@media (max-width:700px) { .hud { grid-template-columns:125px minmax(120px,210px) 120px; gap:7px; top:8px; left:9px; right:9px; } .score-card,.stats-card,.fuel-wrap{padding:6px 8px;border-radius:9px}.score-card strong{font-size:18px}.stats-card{gap:6px;font-size:9px}.modal{top:47%;padding:16px 28px 18px}.tagline{margin:8px 0 10px}.controls{bottom:10px}.pedal{height:68px;border-radius:15px;padding:8px}.pedal b{font-size:14px}.pedal span{font-size:24px} }
-@media (orientation:portrait) and (max-width:650px) { .landscape-hint { display:block; position:absolute; z-index:10; bottom:0; left:0; right:0; padding:8px; background:#01411c; color:#f7d56c; text-align:center; font-size:10px; font-weight:900; } .hud{grid-template-columns:1fr 1fr}.stats-card{display:none}.modal{width:88vw}.controls{bottom:34px} }
+@media (max-width:700px) { .hud { grid-template-columns:125px minmax(120px,210px) 120px; gap:7px; top:8px; left:9px; right:9px; } .score-card,.stats-card,.fuel-wrap{padding:6px 8px;border-radius:9px}.score-card strong{font-size:18px}.stats-card{gap:6px;font-size:9px}.modal{top:45%;padding:13px 28px 15px}.tagline{margin:6px 0 8px}.ride-picker{margin-bottom:8px}.controls{bottom:10px}.pedal{height:68px;border-radius:15px;padding:8px}.pedal b{font-size:14px}.pedal span{font-size:24px}.lane-controls{bottom:11px}.lane-controls button{height:48px} }
+@media (orientation:portrait) and (max-width:650px) { .landscape-hint { display:block; position:absolute; z-index:10; bottom:0; left:0; right:0; padding:8px; background:#173b50; color:#f7d56c; text-align:center; font-size:10px; font-weight:900; } .hud{grid-template-columns:1fr 1fr}.stats-card{display:none}.modal{width:88vw}.controls{bottom:34px} }

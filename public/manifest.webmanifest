@@ -1,12 +1,12 @@
 {
-  "name": "Mehran Hill Climb",
-  "short_name": "Mehran Climb",
-  "description": "A Pakistani endless hill-climb driving game.",
+  "name": "Highway Rush",
+  "short_name": "Highway Rush",
+  "description": "An endless side-view traffic driving game.",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "landscape",
-  "background_color": "#102b20",
-  "theme_color": "#01411c",
+  "background_color": "#142631",
+  "theme_color": "#173b50",
   "icons": [
     { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

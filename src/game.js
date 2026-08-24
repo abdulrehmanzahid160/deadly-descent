@@ -1,264 +1,279 @@
-const TAU = Math.PI * 2
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
-const lerp = (a, b, t) => a + (b - a) * t
-const smooth = (t) => t * t * (3 - 2 * t)
-const hash = (n) => {
-  const x = Math.sin(n * 127.1 + 311.7) * 43758.5453
-  return (x - Math.floor(x)) * 2 - 1
-}
-const normalizeAngle = (angle) => Math.atan2(Math.sin(angle), Math.cos(angle))
+import * as THREE from 'three'
 
-function roundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath()
-  ctx.roundRect(x, y, width, height, radius)
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
+const lanes = [-3.2, 0, 3.2]
+const colors = [0xd65f48, 0x4b83a6, 0xe2b44d, 0x6a8566, 0xd9d8d1, 0x825f91]
+
+function material(color, roughness = .72, metalness = .05) {
+  return new THREE.MeshStandardMaterial({ color, roughness, metalness })
+}
+
+function box(width, height, depth, color, x = 0, y = 0, z = 0) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material(color))
+  mesh.position.set(x, y, z)
+  mesh.castShadow = true
+  mesh.receiveShadow = true
+  return mesh
+}
+
+function createWheel(x, z, radius = .42) {
+  const wheel = new THREE.Mesh(
+    new THREE.CylinderGeometry(radius, radius, .3, 18),
+    material(0x15191b, .9),
+  )
+  wheel.rotation.z = Math.PI / 2
+  wheel.position.set(x, radius, z)
+  wheel.castShadow = true
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * .43, radius * .43, .315, 12), material(0xaeb4b6, .45, .35))
+  hub.rotation.z = Math.PI / 2
+  wheel.add(hub)
+  return wheel
+}
+
+function createVehicle(type = 'hatch', color = 0xe7e6df, player = false) {
+  const group = new THREE.Group()
+  const darkGlass = material(0x486773, .28, .12)
+  const tyrePositions = []
+
+  if (type === 'semi') {
+    group.add(box(2.5, 1.7, 5.8, 0xd8d9d7, 0, 1.35, 1.4))
+    group.add(box(2.45, 2.1, 2.3, color, 0, 1.55, -2.7))
+    group.add(box(2.1, .78, .08, 0x587783, 0, 1.95, -3.88))
+    tyrePositions.push([-1.2, -3], [1.2, -3], [-1.2, 2.2], [1.2, 2.2], [-1.2, 3], [1.2, 3])
+  } else if (type === 'bus') {
+    group.add(box(2.55, 2.55, 5.5, color, 0, 1.65, 0))
+    group.add(box(2.25, .78, .09, 0x4e707c, 0, 2.05, -2.8))
+    for (let z = -1.8; z <= 1.8; z += 1.2) group.add(box(2.58, .58, .72, 0x5f7e86, 0, 2.05, z))
+    tyrePositions.push([-1.22, -1.8], [1.22, -1.8], [-1.22, 1.8], [1.22, 1.8])
+  } else if (type === 'van') {
+    group.add(box(2.25, 1.7, 4.2, color, 0, 1.15, 0))
+    group.add(box(2.02, .72, 1.1, 0x54737d, 0, 1.65, -1.58))
+    group.add(box(2.28, .67, 1.15, 0x5b7982, 0, 1.65, .15))
+    tyrePositions.push([-1.05, -1.35], [1.05, -1.35], [-1.05, 1.35], [1.05, 1.35])
+  } else if (type === 'pickup') {
+    group.add(box(2.3, .72, 4.5, color, 0, .85, 0))
+    group.add(box(2.2, 1.12, 2.05, color, 0, 1.42, -1.08))
+    group.add(box(2.02, .69, .08, 0x53727d, 0, 1.68, -2.12))
+    group.add(box(2.08, .45, 1.75, 0x343b3d, 0, 1.02, 1.15))
+    tyrePositions.push([-1.08, -1.48], [1.08, -1.48], [-1.08, 1.45], [1.08, 1.45])
+  } else if (type === 'bike') {
+    const frame = box(.28, .45, 1.5, color, 0, .72, 0)
+    frame.rotation.x = -.12
+    group.add(frame)
+    group.add(box(.72, .16, .75, 0x242a2c, 0, 1.08, .28))
+    tyrePositions.push([0, -.72], [0, .72])
+  } else {
+    group.add(box(2.2, .65, 4.05, color, 0, .82, 0))
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.88, .9, type === 'sedan' ? 2.25 : 2.5), material(color))
+    cabin.position.set(0, 1.46, type === 'sedan' ? .18 : .08)
+    cabin.geometry.translate(0, 0, 0)
+    cabin.castShadow = true
+    group.add(cabin)
+    const windshield = new THREE.Mesh(new THREE.BoxGeometry(1.72, .58, .06), darkGlass)
+    windshield.position.set(0, 1.63, -1.16)
+    windshield.rotation.x = -.22
+    group.add(windshield)
+    const rearGlass = windshield.clone()
+    rearGlass.position.z = 1.35
+    rearGlass.rotation.x = .2
+    group.add(rearGlass)
+    tyrePositions.push([-1.04, -1.28], [1.04, -1.28], [-1.04, 1.28], [1.04, 1.28])
+  }
+
+  const wheels = tyrePositions.map(([x, z]) => {
+    const wheel = createWheel(x, z, type === 'bike' ? .34 : .42)
+    group.add(wheel)
+    return wheel
+  })
+
+  if (type !== 'semi' && type !== 'bus' && type !== 'bike') {
+    group.add(box(1.55, .16, .08, 0xffe6a3, 0, .82, -2.08))
+    group.add(box(1.55, .14, .08, 0xb32d2d, 0, .83, 2.08))
+  }
+  if (player) {
+    const marker = box(.82, .05, 1.15, 0xf0bb4f, 0, 1.97, .1)
+    marker.material.emissive = new THREE.Color(0x6b4300)
+    group.add(marker)
+  }
+  group.userData.wheels = wheels
+  return group
+}
+
+function createTree(seed) {
+  const group = new THREE.Group()
+  group.add(box(.32, 2.8, .32, 0x5a4630, 0, 1.4, 0))
+  const crown = new THREE.Mesh(new THREE.IcosahedronGeometry(1.35 + (seed % 3) * .15, 1), material(0x416f53))
+  crown.position.y = 3.2
+  crown.castShadow = true
+  group.add(crown)
+  return group
 }
 
 export function createGame(canvas, callbacks) {
-  const ctx = canvas.getContext('2d')
-  const controls = { gas: false, brake: false }
-  const state = {
-    running: false,
-    crashed: false,
-    time: 0,
-    distance: 0,
-    fuel: 100,
-    coins: 0,
-    bonus: 0,
-    popup: '',
-    popupUntil: 0,
-    cameraX: 0,
-    cameraY: 0,
-    wheelSpin: 0,
-    lastGrounded: true,
-    airRotation: 0,
-    airStartAngle: 0,
-    maxX: 160,
-    muted: false,
-    car: { x: 170, y: 250, vx: 0, vy: 0, angle: 0, omega: 0 },
-    pickups: [],
-    seen: new Set(),
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.05
+
+  const scene = new THREE.Scene()
+  scene.background = new THREE.Color(0xdca467)
+  scene.fog = new THREE.Fog(0xdca467, 65, 235)
+  const camera = new THREE.PerspectiveCamera(57, 1, .1, 500)
+  camera.position.set(0, 5.2, 12.5)
+  camera.lookAt(0, 1.1, -17)
+
+  scene.add(new THREE.HemisphereLight(0xffe5b4, 0x44584e, 2.2))
+  const sun = new THREE.DirectionalLight(0xffd39a, 3.3)
+  sun.position.set(-28, 42, 18)
+  sun.castShadow = true
+  sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.camera.left = -28
+  sun.shadow.camera.right = 28
+  sun.shadow.camera.top = 28
+  sun.shadow.camera.bottom = -28
+  scene.add(sun)
+
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(14, 520), material(0x3f4547, .94))
+  road.rotation.x = -Math.PI / 2
+  road.position.set(0, 0, -235)
+  road.receiveShadow = true
+  scene.add(road)
+  const shoulderMaterial = material(0x7f805e, 1)
+  for (const x of [-27, 27]) {
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(40, 520), shoulderMaterial)
+    ground.rotation.x = -Math.PI / 2
+    ground.position.set(x, -.03, -235)
+    ground.receiveShadow = true
+    scene.add(ground)
   }
-  let width = 1
-  let height = 1
-  let dpr = 1
+
+  const movingRoad = new THREE.Group()
+  scene.add(movingRoad)
+  const laneMarks = []
+  for (let i = 0; i < 48; i += 1) {
+    for (const x of [-1.6, 1.6]) {
+      const mark = box(.12, .018, 4.6, 0xe8dfbd, x, .018, -i * 11)
+      mark.receiveShadow = false
+      movingRoad.add(mark)
+      laneMarks.push(mark)
+    }
+  }
+  for (const x of [-6.7, 6.7]) movingRoad.add(box(.15, .025, 520, 0xd8d8d1, x, .02, -235))
+
+  const scenery = []
+  for (let i = 0; i < 42; i += 1) {
+    const item = i % 6 === 0 ? createBillboard(i) : createTree(i)
+    item.position.set((i % 2 ? 1 : -1) * (9 + (i % 4) * 2.2), 0, -18 - i * 15)
+    scene.add(item)
+    scenery.push(item)
+  }
+
+  const state = {
+    running: false, crashed: false, muted: false, ride: 'hatch', lane: 1, speed: 0,
+    distance: 0, fuel: 100, coins: 0, passed: 0, bonus: 0, popup: '', popupUntil: 0,
+    time: 0, playerX: 0, targetX: 0, lateralVelocity: 0, traffic: [], pickups: [],
+  }
+  const controls = { gas: false, brake: false }
+  let player = createVehicle('hatch', 0xe8e7e1, true)
+  player.position.set(0, .08, 5.5)
+  scene.add(player)
+  let audio = null
   let animationFrame = 0
   let previousTime = performance.now()
-  let accumulator = 0
-  let audio = null
 
-  function terrainY(x) {
-    const difficulty = clamp(x / 15000, 0, 1)
-    const broad = Math.sin(x * .0051) * (42 + difficulty * 48)
-    const mid = Math.sin(x * (.011 + difficulty * .003) + 1.4) * (18 + difficulty * 32)
-    const nodeSize = lerp(250, 125, difficulty)
-    const node = Math.floor(x / nodeSize)
-    const fract = x / nodeSize - node
-    const randomHill = lerp(hash(node), hash(node + 1), smooth(fract)) * (28 + difficulty * 115)
-    const starter = clamp((x - 300) / 900, 0, 1)
-    const hazardIndex = Math.floor(x / 1050)
-    const hazardCenter = (hazardIndex + .5) * 1050 + hash(hazardIndex + 200) * 190
-    const hazardDistance = Math.abs(x - hazardCenter)
-    const hazardWidth = hazardIndex % 2 === 0 ? 44 : 78
-    const hazardShape = hazardDistance < hazardWidth ? (1 - hazardDistance / hazardWidth) ** 2 : 0
-    const roadHazard = hazardShape * (hazardIndex % 2 === 0 ? -18 : 25 + difficulty * 11)
-    return height * .69 + (broad + mid + randomHill + roadHazard) * starter
-  }
-
-  function terrainSlope(x) {
-    return (terrainY(x + 4) - terrainY(x - 4)) / 8
-  }
-
-  function reset() {
-    Object.assign(state, {
-      running: true, crashed: false, time: 0, distance: 0, fuel: 100, coins: 0, bonus: 0,
-      popup: '', popupUntil: 0, cameraX: 0, cameraY: 0, wheelSpin: 0, lastGrounded: true,
-      airRotation: 0, airStartAngle: 0, maxX: 170, pickups: [], seen: new Set(),
-    })
-    const angle = Math.atan(terrainSlope(170))
-    state.car = { x: 170, y: terrainY(170) - 56, vx: 0, vy: 0, angle, omega: 0 }
-    seedPickups(0, 10000)
-    beep(160, .08, 'sawtooth', .025)
-  }
-
-  function seedPickups(fromX, toX) {
-    const start = Math.floor(Math.max(600, fromX) / 420)
-    const end = Math.ceil(toX / 420)
-    for (let i = start; i <= end; i += 1) {
-      const x = i * 420 + hash(i + 80) * 105
-      if (state.pickups.some((pickup) => Math.abs(pickup.x - x) < 5)) continue
-      const fuel = i % 9 === 0
-      state.pickups.push({ id: i, x, yOffset: fuel ? 82 : 60 + Math.abs(hash(i + 8)) * 55, type: fuel ? 'fuel' : 'coin', taken: false })
-    }
+  function createBillboard(seed) {
+    const group = new THREE.Group()
+    group.add(box(.28, 3.8, .28, 0x55595b, 0, 1.9, 0))
+    const board = box(4.6, 2.1, .22, seed % 12 ? 0x39758b : 0xcf6548, 0, 4.15, 0)
+    group.add(board)
+    return group
   }
 
   function showPopup(text) {
     state.popup = text
-    state.popupUntil = state.time + 1.35
+    state.popupUntil = state.time + 1.25
   }
 
-  function beep(frequency, duration, type = 'square', gain = .02) {
+  function beep(frequency, duration, gain = .018) {
     if (state.muted) return
     try {
       audio ||= new AudioContext()
       const oscillator = audio.createOscillator()
       const volume = audio.createGain()
-      oscillator.type = type
+      oscillator.type = 'triangle'
       oscillator.frequency.value = frequency
       volume.gain.setValueAtTime(gain, audio.currentTime)
       volume.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + duration)
       oscillator.connect(volume).connect(audio.destination)
       oscillator.start()
       oscillator.stop(audio.currentTime + duration)
-    } catch { /* Audio is an optional enhancement. */ }
+    } catch { /* Sound remains optional. */ }
   }
 
-  function localToWorld(localX, localY) {
-    const { car } = state
-    const cos = Math.cos(car.angle)
-    const sin = Math.sin(car.angle)
-    return { x: car.x + localX * cos - localY * sin, y: car.y + localX * sin + localY * cos }
+  function clearObjects(list) {
+    for (const object of list) scene.remove(object.mesh)
+    list.length = 0
   }
 
-  function pointVelocity(point) {
-    const rx = point.x - state.car.x
-    const ry = point.y - state.car.y
-    return { x: state.car.vx - state.car.omega * ry, y: state.car.vy + state.car.omega * rx }
+  function spawnTraffic(count = 14) {
+    clearObjects(state.traffic)
+    const types = ['sedan', 'hatch', 'van', 'pickup', 'bus', 'semi', 'bike']
+    let z = -32
+    for (let i = 0; i < count; i += 1) {
+      z -= 24 + Math.random() * 25
+      const type = types[Math.floor(Math.random() * types.length)]
+      const lane = Math.floor(Math.random() * 3)
+      const mesh = createVehicle(type, colors[Math.floor(Math.random() * colors.length)])
+      const scale = type === 'bike' ? .9 : .82 + lane * .07
+      mesh.scale.setScalar(scale)
+      mesh.position.set(lanes[lane], .05, z)
+      scene.add(mesh)
+      state.traffic.push({ mesh, type, lane, speed: 12 + Math.random() * 24, passed: false })
+    }
   }
 
-  function applyForce(fx, fy, point, dt) {
-    const car = state.car
-    const mass = 1.9
-    const inertia = 4100
-    car.vx += (fx / mass) * dt
-    car.vy += (fy / mass) * dt
-    const rx = point.x - car.x
-    const ry = point.y - car.y
-    car.omega += ((rx * fy - ry * fx) / inertia) * dt
+  function spawnPickups() {
+    clearObjects(state.pickups)
+    for (let i = 0; i < 6; i += 1) {
+      const fuel = i % 4 === 3
+      const mesh = fuel
+        ? box(.9, 1.15, .45, 0xd95448)
+        : new THREE.Mesh(new THREE.CylinderGeometry(.48, .48, .16, 20), material(0xf2c34e, .4, .25))
+      if (!fuel) mesh.rotation.z = Math.PI / 2
+      const lane = Math.floor(Math.random() * 3)
+      mesh.position.set(lanes[lane], fuel ? .75 : 1.05, -95 - i * 105)
+      mesh.castShadow = true
+      scene.add(mesh)
+      state.pickups.push({ mesh, fuel, lane })
+    }
   }
 
-  function update(dt) {
-    if (!state.running || state.crashed) return
-    const car = state.car
-    state.time += dt
-    const difficulty = clamp(car.x / 18000, 0, 1)
-    car.vy += 850 * dt
-    car.vx *= Math.pow(.999, dt * 60)
-    car.omega *= Math.pow(.996, dt * 60)
+  function reset(ride = 'hatch') {
+    scene.remove(player)
+    player = createVehicle(ride, ride === 'pickup' ? 0xd66d3e : ride === 'van' ? 0xe1ddd0 : 0xe8e7e1, true)
+    player.position.set(0, .08, 5.5)
+    scene.add(player)
+    Object.assign(state, {
+      running: true, crashed: false, ride, lane: 1, speed: 0, distance: 0, fuel: 100,
+      coins: 0, passed: 0, bonus: 0, popup: '', popupUntil: 0, time: 0,
+      playerX: 0, targetX: 0, lateralVelocity: 0,
+    })
+    controls.gas = false
+    controls.brake = false
+    spawnTraffic()
+    spawnPickups()
+    beep(180, .09, .022)
+  }
 
-    let grounded = false
-    const wheelOffsets = [-48, 48]
-    for (const offset of wheelOffsets) {
-      const wheel = localToWorld(offset, 29)
-      const groundY = terrainY(wheel.x)
-      const penetration = wheel.y + 22 - groundY
-      if (penetration > 0 && penetration < 65) {
-        grounded = true
-        const slope = terrainSlope(wheel.x)
-        const length = Math.hypot(1, slope)
-        const nx = slope / length
-        const ny = -1 / length
-        const tx = 1 / length
-        const ty = slope / length
-        const velocity = pointVelocity(wheel)
-        const normalSpeed = velocity.x * nx + velocity.y * ny
-        const spring = clamp(penetration * 145 - normalSpeed * 15, 0, 5500)
-        applyForce(nx * spring, ny * spring, wheel, dt)
-
-        const tangentSpeed = velocity.x * tx + velocity.y * ty
-        let target = 0
-        if (controls.gas && state.fuel > 0) target = 295 + difficulty * 70
-        if (controls.brake) target = -125
-        const grip = controls.gas || controls.brake ? clamp((target - tangentSpeed) * 15, -2300, 2300) : clamp(-tangentSpeed * 1.4, -280, 280)
-        applyForce(tx * grip, ty * grip, wheel, dt)
-      }
-    }
-
-    if (!grounded) {
-      const torque = (controls.gas ? -2.7 : 0) + (controls.brake ? 2.7 : 0)
-      car.omega += torque * dt
-      state.airRotation += car.omega * dt
-    }
-
-    if (controls.gas && state.fuel > 0) state.fuel = Math.max(0, state.fuel - dt * 1.45)
-    else state.fuel = Math.max(0, state.fuel - dt * .18)
-
-    car.x += car.vx * dt
-    car.y += car.vy * dt
-    car.angle += car.omega * dt
-    car.vx = clamp(car.vx, -160, 520 + difficulty * 120)
-    car.vy = clamp(car.vy, -650, 800)
-    state.wheelSpin += car.vx * dt / 22
-    state.maxX = Math.max(state.maxX, car.x)
-    state.distance = Math.max(0, (state.maxX - 170) / 10000)
-
-    if (!grounded && state.lastGrounded) {
-      state.airRotation = 0
-      state.airStartAngle = car.angle
-    }
-    if (grounded && !state.lastGrounded) {
-      const rotations = Math.floor(Math.abs(state.airRotation) / (TAU * .82))
-      const upright = Math.abs(normalizeAngle(car.angle - Math.atan(terrainSlope(car.x)))) < .72
-      if (rotations > 0 && upright) {
-        const earned = rotations * 500
-        state.bonus += earned
-        showPopup(rotations > 1 ? `ZABARDAST! ${rotations}x FLIP +${earned}` : `SHABASH! FLIP +${earned}`)
-        beep(720, .13, 'triangle', .035)
-      } else if (Math.abs(car.vy) > 170 && upright) {
-        state.bonus += 100
-        showPopup('MAST LANDING! +100')
-      }
-    }
-    state.lastGrounded = grounded
-
-    for (const pickup of state.pickups) {
-      if (pickup.taken || Math.abs(pickup.x - car.x) > 75) continue
-      const pickupY = terrainY(pickup.x) - pickup.yOffset
-      if (Math.hypot(pickup.x - car.x, pickupY - car.y) < 72) {
-        pickup.taken = true
-        if (pickup.type === 'fuel') {
-          state.fuel = Math.min(100, state.fuel + 42)
-          showPopup('FULL TANK! CHALO!')
-          beep(340, .18, 'sine', .04)
-        } else {
-          state.coins += 1
-          state.bonus += 50
-          if (state.coins % 5 === 0) showPopup('PAISA HI PAISA! +250')
-          beep(880, .07, 'square', .018)
-        }
-      }
-    }
-
-    const propIndex = Math.round(car.x / 850)
-    for (let i = propIndex - 1; i <= propIndex + 1; i += 1) {
-      const propX = i * 850 + hash(i + 50) * 160
-      const kind = Math.abs(i) % 5
-      const key = `prop-${i}`
-      if ((kind === 3 || kind === 4) && !state.seen.has(key) && car.x > propX + 65) {
-        state.seen.add(key)
-        const clearance = terrainY(car.x) - car.y
-        if (clearance > 72 && car.x < propX + 190) {
-          state.bonus += 250
-          showPopup(kind === 3 ? 'COW DODGE! ZABARDAST +250' : 'CART JUMP! SHABASH +250')
-          beep(610, .11, 'triangle', .03)
-        }
-      }
-    }
-
-    seedPickups(car.x + 6000, car.x + 10000)
-    state.pickups = state.pickups.filter((pickup) => pickup.x > car.x - 1000)
-
-    const roofA = localToWorld(-39, -28)
-    const roofB = localToWorld(38, -28)
-    const nose = localToWorld(67, -4)
-    const roofHit = roofA.y > terrainY(roofA.x) - 2 || roofB.y > terrainY(roofB.x) - 2
-    const noseHit = nose.y > terrainY(nose.x) && Math.abs(car.vx) > 55
-    if (roofHit || noseHit || car.y > height + 250 || (state.fuel <= 0 && Math.abs(car.vx) < 3 && grounded)) crash()
-
-    const targetCamera = car.x - width * .31
-    state.cameraX = lerp(state.cameraX, targetCamera, 1 - Math.pow(.0005, dt))
-    const targetY = clamp(car.y - height * .49, -140, 210)
-    state.cameraY = lerp(state.cameraY, targetY, 1 - Math.pow(.02, dt))
-    if (state.popup && state.time > state.popupUntil) state.popup = ''
+  function recycleTraffic(vehicle) {
+    const farthest = Math.min(-140, ...state.traffic.map((item) => item.mesh.position.z))
+    vehicle.mesh.position.z = farthest - 35 - Math.random() * 65
+    vehicle.lane = Math.floor(Math.random() * 3)
+    vehicle.mesh.position.x = lanes[vehicle.lane]
+    vehicle.speed = 12 + Math.random() * 26 + clamp(state.distance / 3, 0, 7)
+    vehicle.passed = false
   }
 
   function crash() {
@@ -267,256 +282,166 @@ export function createGame(canvas, callbacks) {
     state.running = false
     controls.gas = false
     controls.brake = false
-    showPopup('OH HO!')
-    beep(100, .45, 'sawtooth', .045)
+    player.rotation.z = -.34
+    showPopup('CRASH')
+    beep(90, .45, .04)
     callbacks.onCrash(state.distance)
   }
 
-  function drawSky() {
-    const gradient = ctx.createLinearGradient(0, 0, 0, height)
-    gradient.addColorStop(0, '#e99b55')
-    gradient.addColorStop(.43, '#f6d18a')
-    gradient.addColorStop(1, '#a9b77a')
-    ctx.fillStyle = gradient
-    ctx.fillRect(0, 0, width, height)
-
-    ctx.save()
-    ctx.globalAlpha = .32
-    ctx.fillStyle = '#fff0c0'
-    ctx.beginPath(); ctx.arc(width * .77, height * .22, 58, 0, TAU); ctx.fill()
-    ctx.globalAlpha = 1
-    drawFlag(width * .74 - (state.cameraX * .02) % (width + 300), height * .1, 170, state.time)
-    ctx.restore()
+  function changeLane(direction) {
+    if (!state.running || state.crashed) return
+    state.lane = clamp(state.lane + direction, 0, 2)
+    state.targetX = lanes[state.lane]
+    beep(420, .055, .012)
   }
 
-  function drawFlag(x, y, scale, time) {
-    ctx.save(); ctx.translate(x, y)
-    ctx.strokeStyle = '#44372b'; ctx.lineWidth = 5
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, scale * 1.25); ctx.stroke()
-    ctx.fillStyle = 'rgba(1,65,28,.72)'
-    ctx.beginPath(); ctx.moveTo(2, 4)
-    for (let i = 0; i <= 6; i += 1) {
-      const px = (i / 6) * scale
-      const py = Math.sin(time * 2 + i * .7) * 5
-      ctx.lineTo(px, py + 4)
-    }
-    for (let i = 6; i >= 0; i -= 1) {
-      const px = (i / 6) * scale
-      const py = Math.sin(time * 2 + i * .7) * 5 + scale * .6
-      ctx.lineTo(px, py)
-    }
-    ctx.closePath(); ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(2, 4, scale * .22, scale * .6)
-    ctx.beginPath(); ctx.arc(scale * .54, scale * .3, scale * .13, .4, 5.5); ctx.fill()
-    ctx.fillStyle = '#3b7c4c'; ctx.beginPath(); ctx.arc(scale * .58, scale * .27, scale * .115, .4, 5.5); ctx.fill()
-    ctx.fillStyle = 'rgba(255,255,255,.85)'; star(ctx, scale * .69, scale * .18, 5, scale * .05, scale * .022); ctx.fill()
-    ctx.restore()
-  }
+  function update(dt) {
+    state.time += dt
+    if (!state.running || state.crashed) return
+    const profile = state.ride === 'hatch'
+      ? { acceleration: 20, max: 57, grip: 10 }
+      : state.ride === 'pickup'
+        ? { acceleration: 14, max: 49, grip: 7.5 }
+        : { acceleration: 16, max: 52, grip: 8.5 }
+    const throttle = controls.gas && state.fuel > 0 ? profile.acceleration : 0
+    const brake = controls.brake ? 32 : 0
+    const drag = 1.5 + state.speed * .024
+    state.speed = clamp(state.speed + (throttle - brake - drag) * dt, 0, profile.max)
+    state.fuel = Math.max(0, state.fuel - dt * (.12 + (controls.gas ? .7 : 0)))
+    state.distance += state.speed * dt / 1000
 
-  function star(context, x, y, points, outer, inner) {
-    context.beginPath()
-    for (let i = 0; i < points * 2; i += 1) {
-      const radius = i % 2 ? inner : outer
-      const angle = -Math.PI / 2 + (i * Math.PI) / points
-      context.lineTo(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius)
-    }
-    context.closePath()
-  }
+    const previousX = state.playerX
+    state.playerX += (state.targetX - state.playerX) * (1 - Math.exp(-profile.grip * dt))
+    state.lateralVelocity = (state.playerX - previousX) / Math.max(dt, .001)
+    player.position.x = state.playerX
+    player.position.y = .08 + Math.sin(state.time * (5 + state.speed * .2)) * Math.min(.055, state.speed * .0012)
+    player.rotation.z += ((-state.lateralVelocity * .035) - player.rotation.z) * (1 - Math.exp(-8 * dt))
+    player.rotation.x += ((controls.brake ? -.045 : controls.gas ? .025 : 0) - player.rotation.x) * (1 - Math.exp(-6 * dt))
+    for (const wheel of player.userData.wheels) wheel.rotation.x -= state.speed * dt / .42
 
-  function drawMountains() {
-    const layers = [
-      { factor: .08, base: .63, color: '#718363', amp: 78, step: 250 },
-      { factor: .16, base: .71, color: '#496b50', amp: 65, step: 185 },
-    ]
-    for (const layer of layers) {
-      const shift = (state.cameraX * layer.factor) % layer.step
-      ctx.fillStyle = layer.color
-      ctx.beginPath(); ctx.moveTo(0, height)
-      for (let x = -layer.step - shift; x < width + layer.step; x += layer.step) {
-        const peak = height * layer.base - Math.abs(hash(Math.floor((x + state.cameraX * layer.factor) / layer.step))) * layer.amp
-        ctx.lineTo(x, height * layer.base + 25); ctx.lineTo(x + layer.step * .5, peak); ctx.lineTo(x + layer.step, height * layer.base + 25)
+    const roadTravel = state.speed * dt
+    for (const mark of laneMarks) {
+      mark.position.z += roadTravel
+      if (mark.position.z > 18) mark.position.z -= 528
+    }
+    for (const item of scenery) {
+      item.position.z += roadTravel
+      if (item.position.z > 22) item.position.z -= 630
+    }
+
+    for (const vehicle of state.traffic) {
+      vehicle.mesh.position.z += (state.speed - vehicle.speed) * dt
+      for (const wheel of vehicle.mesh.userData.wheels) wheel.rotation.x -= vehicle.speed * dt / .42
+      const dz = vehicle.mesh.position.z - player.position.z
+      if (!vehicle.passed && dz > 2.8) {
+        vehicle.passed = true
+        state.passed += 1
+        if (Math.abs(vehicle.mesh.position.x - state.playerX) < 3.65) {
+          state.bonus += 100
+          showPopup('CLOSE PASS  +100')
+          beep(650, .08, .02)
+        }
       }
-      ctx.lineTo(width, height); ctx.closePath(); ctx.fill()
+      if (Math.abs(dz) < 3.15 && Math.abs(vehicle.mesh.position.x - state.playerX) < 1.85) crash()
+      if (vehicle.mesh.position.z > 24) recycleTraffic(vehicle)
     }
-    drawSkyline()
-  }
 
-  function drawSkyline() {
-    const shift = state.cameraX * .28
-    ctx.save(); ctx.translate(-shift, 0); ctx.fillStyle = '#214d37'; ctx.globalAlpha = .82
-    const start = Math.floor(shift / 900) * 900
-    for (let base = start - 900; base < shift + width + 900; base += 900) {
-      const y = height * .66
-      ctx.fillRect(base + 110, y - 55, 90, 55)
-      ctx.beginPath(); ctx.arc(base + 155, y - 55, 45, Math.PI, TAU); ctx.fill()
-      ctx.fillRect(base + 240, y - 115, 19, 115)
-      ctx.beginPath(); ctx.moveTo(base + 236, y - 115); ctx.lineTo(base + 250, y - 150); ctx.lineTo(base + 264, y - 115); ctx.fill()
-      drawTruck(ctx, base + 520, y - 40, .72)
-    }
-    ctx.restore()
-  }
-
-  function drawTruck(context, x, y, scale) {
-    context.save(); context.translate(x, y); context.scale(scale, scale)
-    context.fillStyle='#b84834'; context.fillRect(0,-38,120,48)
-    context.fillStyle='#e6a93d'; context.fillRect(8,-31,104,10)
-    context.fillStyle='#1d6c59'; context.fillRect(10,-16,100,9)
-    context.fillStyle='#d97032'; context.fillRect(120,-29,45,39)
-    context.fillStyle='#172b28'; context.fillRect(128,-24,27,17)
-    context.fillStyle='#20231f'; context.beginPath(); context.arc(33,13,13,0,TAU); context.arc(137,13,13,0,TAU); context.fill()
-    context.restore()
-  }
-
-  function drawBunting() {
-    const spacing = 700
-    const start = Math.floor((state.cameraX - 200) / spacing) * spacing
-    ctx.save(); ctx.translate(-state.cameraX, -state.cameraY)
-    for (let x = start; x < state.cameraX + width + spacing; x += spacing) {
-      const ground = terrainY(x)
-      ctx.strokeStyle='#413728'; ctx.lineWidth=3
-      ctx.beginPath(); ctx.moveTo(x,ground); ctx.lineTo(x,ground-145); ctx.lineTo(x+spacing,terrainY(x+spacing)-145); ctx.stroke()
-      for(let j=1;j<7;j+=1){
-        const px=x+j*spacing/7, py=lerp(ground-145,terrainY(x+spacing)-145,j/7)+Math.sin(j)*8
-        ctx.fillStyle=j%2?'#01411c':'#f4f0de'; ctx.beginPath(); ctx.moveTo(px-13,py);ctx.lineTo(px+13,py);ctx.lineTo(px,py+25);ctx.closePath();ctx.fill()
+    for (const pickup of state.pickups) {
+      pickup.mesh.position.z += state.speed * dt
+      pickup.mesh.rotation.y += dt * 2.2
+      const dz = pickup.mesh.position.z - player.position.z
+      if (Math.abs(dz) < 2.1 && Math.abs(pickup.mesh.position.x - state.playerX) < 1.5) {
+        if (pickup.fuel) {
+          state.fuel = Math.min(100, state.fuel + 38)
+          showPopup('FUEL REFILLED')
+        } else {
+          state.coins += 1
+          state.bonus += 50
+          showPopup('COIN  +50')
+        }
+        pickup.mesh.position.z -= 620
+        pickup.lane = Math.floor(Math.random() * 3)
+        pickup.mesh.position.x = lanes[pickup.lane]
+        beep(pickup.fuel ? 320 : 820, .1, .02)
+      } else if (pickup.mesh.position.z > 22) {
+        pickup.mesh.position.z -= 620
+        pickup.lane = Math.floor(Math.random() * 3)
+        pickup.mesh.position.x = lanes[pickup.lane]
       }
     }
-    ctx.restore()
-  }
 
-  function drawTerrain() {
-    const left = state.cameraX - 60
-    const right = state.cameraX + width + 60
-    ctx.save(); ctx.translate(-state.cameraX, -state.cameraY)
-    ctx.fillStyle = '#6d5429'; ctx.beginPath(); ctx.moveTo(left, height + state.cameraY + 150)
-    for (let x = left; x <= right; x += 12) ctx.lineTo(x, terrainY(x))
-    ctx.lineTo(right, height + state.cameraY + 150); ctx.closePath(); ctx.fill()
-    ctx.strokeStyle = '#263d25'; ctx.lineWidth = 13; ctx.lineJoin='round'; ctx.beginPath()
-    for (let x=left;x<=right;x+=10) { const y=terrainY(x); if(x===left)ctx.moveTo(x,y);else ctx.lineTo(x,y) }
-    ctx.stroke()
-    ctx.strokeStyle='#b68a3f';ctx.lineWidth=5;ctx.stroke()
-    const hazardStart=Math.floor(left/1050)-1,hazardEnd=Math.ceil(right/1050)+1
-    for(let i=hazardStart;i<=hazardEnd;i+=1){
-      const hx=(i+.5)*1050+hash(i+200)*190
-      if(i%2===0){
-        const hy=terrainY(hx)-5;ctx.strokeStyle='#e8b837';ctx.lineWidth=4
-        for(let stripe=-24;stripe<=24;stripe+=12){ctx.beginPath();ctx.moveTo(hx+stripe,hy-2);ctx.lineTo(hx+stripe+7,hy+2);ctx.stroke()}
-      }else{
-        ctx.fillStyle='rgba(35,28,18,.55)';ctx.beginPath();ctx.ellipse(hx,terrainY(hx)-2,42,8,0,0,TAU);ctx.fill()
-      }
-    }
-    ctx.restore()
-  }
-
-  function drawProps() {
-    const start = Math.floor((state.cameraX - 400) / 850)
-    const end = Math.ceil((state.cameraX + width + 400) / 850)
-    ctx.save(); ctx.translate(-state.cameraX, -state.cameraY)
-    for (let i=start;i<=end;i+=1) {
-      const x=i*850+hash(i+50)*160, y=terrainY(x)
-      const kind=Math.abs(i)%5
-      if(kind===0) drawDhaba(x,y)
-      else if(kind===1) drawRickshaw(x,y)
-      else if(kind===2) drawPso(x,y)
-      else if(kind===3) drawCow(x,y)
-      else drawDonkeyCart(x,y)
-    }
-    for (const pickup of state.pickups) if (!pickup.taken && pickup.x>state.cameraX-80&&pickup.x<state.cameraX+width+80) drawPickup(pickup)
-    ctx.restore()
-  }
-
-  function drawDhaba(x,y){ctx.save();ctx.translate(x,y);ctx.fillStyle='#493927';ctx.fillRect(-55,-55,110,55);ctx.fillStyle='#b44430';ctx.beginPath();ctx.moveTo(-65,-55);ctx.lineTo(65,-55);ctx.lineTo(45,-82);ctx.lineTo(-48,-82);ctx.closePath();ctx.fill();ctx.fillStyle='#f2c65b';ctx.font='900 12px Montserrat';ctx.textAlign='center';ctx.fillText('چائے  DHABA',0,-62);ctx.restore()}
-  function drawRickshaw(x,y){ctx.save();ctx.translate(x,y-6);ctx.fillStyle='#e6a62c';ctx.strokeStyle='#253b2d';ctx.lineWidth=4;roundedRect(ctx,-40,-51,72,43,8);ctx.fill();ctx.stroke();ctx.fillStyle='#1d5941';ctx.fillRect(-32,-43,42,24);ctx.fillStyle='#20231f';ctx.beginPath();ctx.arc(-24,0,12,0,TAU);ctx.arc(27,0,12,0,TAU);ctx.fill();ctx.restore()}
-  function drawPso(x,y){ctx.save();ctx.translate(x,y);ctx.fillStyle='#eee9d8';ctx.fillRect(-7,-115,14,115);ctx.fillStyle='#fff';ctx.strokeStyle='#194b39';ctx.lineWidth=4;roundedRect(ctx,-38,-142,76,39,7);ctx.fill();ctx.stroke();ctx.fillStyle='#ea3536';ctx.font='900 18px Montserrat';ctx.textAlign='center';ctx.fillText('PSO',0,-116);ctx.restore()}
-  function drawCow(x,y){ctx.save();ctx.translate(x,y);ctx.fillStyle='#e8ded0';ctx.strokeStyle='#332d27';ctx.lineWidth=3;roundedRect(ctx,-36,-43,69,34,15);ctx.fill();ctx.stroke();ctx.beginPath();ctx.arc(37,-32,15,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle='#332d27';ctx.beginPath();ctx.arc(-15,-25,8,0,TAU);ctx.fill();ctx.fillRect(-24,-13,6,17);ctx.fillRect(20,-13,6,17);ctx.restore()}
-  function drawDonkeyCart(x,y){ctx.save();ctx.translate(x,y);ctx.strokeStyle='#372d23';ctx.lineWidth=4;ctx.strokeRect(-10,-47,68,30);ctx.beginPath();ctx.moveTo(-10,-20);ctx.lineTo(-58,-27);ctx.stroke();ctx.fillStyle='#756958';ctx.beginPath();ctx.ellipse(-74,-34,22,13,0,0,TAU);ctx.fill();ctx.beginPath();ctx.moveTo(-87,-43);ctx.lineTo(-94,-61);ctx.lineTo(-82,-49);ctx.fill();ctx.fillStyle='#292824';ctx.beginPath();ctx.arc(3,-8,12,0,TAU);ctx.arc(48,-8,12,0,TAU);ctx.fill();ctx.restore()}
-  function drawPickup(pickup){const y=terrainY(pickup.x)-pickup.yOffset;const bob=Math.sin(state.time*4+pickup.id)*5;ctx.save();ctx.translate(pickup.x,y+bob);if(pickup.type==='coin'){ctx.fillStyle='#f6c644';ctx.strokeStyle='#8a6217';ctx.lineWidth=4;ctx.beginPath();ctx.arc(0,0,15,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle='#fff1a2';ctx.font='900 14px Montserrat';ctx.textAlign='center';ctx.fillText('₨',0,5)}else{ctx.fillStyle='#e8e7dc';ctx.strokeStyle='#24402d';ctx.lineWidth=4;roundedRect(ctx,-17,-22,34,44,6);ctx.fill();ctx.stroke();ctx.fillStyle='#d74435';ctx.fillRect(-11,-15,22,24);ctx.fillStyle='#fff';ctx.font='900 10px Montserrat';ctx.textAlign='center';ctx.fillText('FUEL',0,1)}ctx.restore()}
-
-  function drawCar() {
-    const car=state.car
-    ctx.save();ctx.translate(car.x-state.cameraX,car.y-state.cameraY);ctx.rotate(car.angle)
-    // Exposed struts keep the suspension readable without changing the Mehran proportions.
-    ctx.strokeStyle='#273129';ctx.lineWidth=4
-    for(const wx of [-50,50]){ctx.beginPath();ctx.moveTo(wx,3);ctx.lineTo(wx,27);ctx.stroke()}
-
-    // Small steel wheels and tall tyre sidewalls are a defining Mehran detail.
-    for(const wx of [-50,50]){ctx.save();ctx.translate(wx,29);ctx.rotate(state.wheelSpin);ctx.fillStyle='#151a17';ctx.beginPath();ctx.arc(0,0,23,0,TAU);ctx.fill();ctx.strokeStyle='#30342f';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#a7aaa4';ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.fill();ctx.strokeStyle='#5b605a';ctx.lineWidth=2;for(let i=0;i<8;i+=1){ctx.rotate(TAU/8);ctx.beginPath();ctx.moveTo(3,0);ctx.lineTo(9,0);ctx.stroke()}ctx.fillStyle='#626761';ctx.beginPath();ctx.arc(0,0,3,0,TAU);ctx.fill();ctx.restore()}
-
-    // First-generation Mehran / Alto SB308 silhouette: flat roof, upright hatch and short bonnet.
-    ctx.fillStyle='#e7e5dd';ctx.strokeStyle='#263129';ctx.lineWidth=4;ctx.lineJoin='round';ctx.beginPath()
-    ctx.moveTo(-82,17);ctx.lineTo(-81,-25);ctx.lineTo(-67,-45);ctx.lineTo(-51,-53);ctx.lineTo(24,-53);ctx.lineTo(48,-29);ctx.lineTo(76,-25);ctx.lineTo(81,-15);ctx.lineTo(80,17);ctx.closePath();ctx.fill();ctx.stroke()
-
-    // Dark straight bumpers, wheel arches and the unadorned lower crease.
-    ctx.strokeStyle='#333b35';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-84,10);ctx.lineTo(-70,10);ctx.moveTo(70,10);ctx.lineTo(83,10);ctx.stroke()
-    ctx.strokeStyle='#777a74';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-76,1);ctx.lineTo(75,1);ctx.stroke()
-    ctx.strokeStyle='#263129';ctx.lineWidth=3;ctx.beginPath();ctx.arc(-50,20,27,Math.PI,TAU);ctx.moveTo(23,20);ctx.arc(50,20,27,Math.PI,TAU);ctx.stroke()
-
-    // The large square glasshouse is split by thin B- and C-pillars into four-door proportions.
-    ctx.fillStyle='#77918c';ctx.strokeStyle='#263129';ctx.lineWidth=3
-    ctx.beginPath();ctx.moveTo(-61,-43);ctx.lineTo(-48,-49);ctx.lineTo(-27,-49);ctx.lineTo(-27,-28);ctx.lineTo(-68,-28);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.beginPath();ctx.moveTo(-22,-49);ctx.lineTo(1,-49);ctx.lineTo(1,-28);ctx.lineTo(-22,-28);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.beginPath();ctx.moveTo(6,-49);ctx.lineTo(22,-49);ctx.lineTo(42,-29);ctx.lineTo(6,-29);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.fillStyle='rgba(224,235,226,.35)';ctx.beginPath();ctx.moveTo(-18,-46);ctx.lineTo(-2,-46);ctx.lineTo(-2,-42);ctx.lineTo(-18,-42);ctx.fill();ctx.beginPath();ctx.moveTo(10,-46);ctx.lineTo(21,-46);ctx.lineTo(26,-41);ctx.lineTo(10,-41);ctx.fill()
-
-    // Four door seams, simple pull handles and the characteristic black side moulding.
-    ctx.strokeStyle='#8d8e88';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(-25,-26);ctx.lineTo(-25,9);ctx.moveTo(4,-27);ctx.lineTo(4,9);ctx.moveTo(46,-26);ctx.lineTo(46,8);ctx.stroke()
-    ctx.fillStyle='#303832';ctx.fillRect(-17,-20,10,2.5);ctx.fillRect(17,-20,10,2.5)
-    ctx.fillStyle='#303832';ctx.fillRect(-73,3,146,6)
-
-    // Trapezoid headlamp, narrow front grille, amber indicator and vertical rear lamp.
-    ctx.fillStyle='#f4dfa1';ctx.strokeStyle='#263129';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(69,-22);ctx.lineTo(79,-19);ctx.lineTo(78,-10);ctx.lineTo(67,-11);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.fillStyle='#d9922e';ctx.fillRect(76,-9,5,6)
-    ctx.fillStyle='#202923';for(let i=0;i<3;i+=1)ctx.fillRect(75,-2+i*3,7,1.5)
-    ctx.fillStyle='#b8322d';ctx.fillRect(-83,-21,6,16)
-    ctx.fillStyle='#263129';ctx.beginPath();ctx.moveTo(48,-31);ctx.lineTo(55,-35);ctx.lineTo(58,-31);ctx.closePath();ctx.fill()
-    ctx.fillStyle='#4f5550';ctx.font='700 6px Montserrat';ctx.textAlign='center';ctx.fillText('MEHRAN',-5,-8)
-    ctx.restore()
-  }
-
-  function draw() {
-    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,width,height)
-    drawSky();drawMountains();drawBunting();drawProps();drawTerrain();drawCar()
-    if (!state.running && !state.crashed) {
-      ctx.fillStyle='rgba(18,41,29,.12)';ctx.fillRect(0,0,width,height)
-    }
+    camera.position.x += (state.playerX * .27 - camera.position.x) * (1 - Math.exp(-4 * dt))
+    camera.position.y = 5.2 + Math.sin(state.time * 3.2) * Math.min(.05, state.speed * .001)
+    camera.lookAt(state.playerX * .12, 1.05, -18)
+    if (state.fuel <= 0 && state.speed < .3) crash()
+    if (state.popup && state.time > state.popupUntil) state.popup = ''
   }
 
   function reportHud() {
     callbacks.onHud({
       distance: state.distance, fuel: state.fuel, coins: state.coins, bonus: state.bonus,
-      speed: Math.abs(state.car.vx) * .18, popup: state.popup,
+      passed: state.passed, speed: state.speed * 3.6, popup: state.popup,
     })
   }
 
-  function loop(now) {
-    const frameTime=clamp((now-previousTime)/1000,0,.05);previousTime=now;accumulator+=frameTime
-    const fixed=1/120
-    while(accumulator>=fixed){update(fixed);accumulator-=fixed}
-    draw()
-    if(Math.floor(now/100)!==Math.floor((now-frameTime*1000)/100))reportHud()
-    animationFrame=requestAnimationFrame(loop)
-  }
-
   function resize() {
-    const rect=canvas.getBoundingClientRect();width=Math.max(1,rect.width);height=Math.max(1,rect.height);dpr=Math.min(devicePixelRatio||1,2)
-    canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr)
-    if(!state.running){state.car.y=terrainY(state.car.x)-56;state.cameraY=0}
+    const rect = canvas.getBoundingClientRect()
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false)
+    camera.aspect = Math.max(1, rect.width) / Math.max(1, rect.height)
+    camera.updateProjectionMatrix()
   }
 
   function key(event, down) {
-    const gas=['ArrowRight','KeyD','Space','ArrowUp'].includes(event.code)
-    const brake=['ArrowLeft','KeyA','ArrowDown'].includes(event.code)
-    if(gas||brake){event.preventDefault();if(gas)controls.gas=down;if(brake)controls.brake=down}
+    const gas = ['ArrowRight', 'KeyD', 'Space'].includes(event.code)
+    const brake = ['ArrowLeft', 'KeyA'].includes(event.code)
+    const up = ['ArrowUp', 'KeyW'].includes(event.code)
+    const downLane = ['ArrowDown', 'KeyS'].includes(event.code)
+    if (gas || brake || up || downLane) event.preventDefault()
+    if (gas) controls.gas = down
+    if (brake) controls.brake = down
+    if (down && !event.repeat && up) changeLane(-1)
+    if (down && !event.repeat && downLane) changeLane(1)
   }
-  const onKeyDown=(event)=>key(event,true)
-  const onKeyUp=(event)=>key(event,false)
-  const onBlur=()=>{controls.gas=false;controls.brake=false}
-  window.addEventListener('resize',resize);window.addEventListener('keydown',onKeyDown);window.addEventListener('keyup',onKeyUp);window.addEventListener('blur',onBlur)
-  resize();state.car.y=terrainY(state.car.x)-56;animationFrame=requestAnimationFrame(loop)
+
+  const onKeyDown = (event) => key(event, true)
+  const onKeyUp = (event) => key(event, false)
+  const onBlur = () => { controls.gas = false; controls.brake = false }
+  window.addEventListener('resize', resize)
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
+  window.addEventListener('blur', onBlur)
+  resize()
+  spawnTraffic()
+  spawnPickups()
+
+  function loop(now) {
+    const dt = clamp((now - previousTime) / 1000, 0, .04)
+    previousTime = now
+    update(dt)
+    renderer.render(scene, camera)
+    if (Math.floor(now / 100) !== Math.floor((now - dt * 1000) / 100)) reportHud()
+    animationFrame = requestAnimationFrame(loop)
+  }
+  animationFrame = requestAnimationFrame(loop)
 
   return {
-    start:reset,
-    setControl(name,down){controls[name]=down;if(down&&audio?.state==='suspended')audio.resume()},
-    setMuted(value){state.muted=value},
-    destroy(){cancelAnimationFrame(animationFrame);window.removeEventListener('resize',resize);window.removeEventListener('keydown',onKeyDown);window.removeEventListener('keyup',onKeyUp);window.removeEventListener('blur',onBlur);audio?.close()},
+    start: reset,
+    setControl(name, down) {
+      if (down && name === 'laneUp') changeLane(-1)
+      else if (down && name === 'laneDown') changeLane(1)
+      else if (name === 'gas' || name === 'brake') controls[name] = down
+      if (down && audio?.state === 'suspended') audio.resume()
+    },
+    setMuted(value) { state.muted = value },
+    destroy() {
+      cancelAnimationFrame(animationFrame)
+      window.removeEventListener('resize', resize)
+      window.removeEventListener('keydown', onKeyDown)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+      renderer.dispose()
+      audio?.close()
+    },
   }
 }

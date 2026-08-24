@@ -1,8 +1,8 @@
-# Mehran Hill Climb
+# Highway Rush
 
-A playful, physics-based endless driving game inspired by Pakistan's beloved Suzuki Mehran and the colorful chaos of GT Road.
+A 3D endless traffic game with a behind-the-car highway camera, responsive lane changing, varied traffic, and long-distance runs.
 
-![Mehran Hill Climb start screen](game-preview.png)
+![Highway Rush 3D start screen](game-preview.png)
 
 ## Play locally
 
@@ -11,14 +11,15 @@ npm install
 npm run dev
 ```
 
-Then open the URL shown by Vite. Hold **Right Arrow**, **D**, **Up Arrow**, or **Space** for gas. Hold **Left Arrow**, **A**, or **Down Arrow** to brake/reverse. In the air, use gas and brake to rotate the car.
+Then open the URL shown by Vite. Hold **Right Arrow**, **D**, or **Space** for gas. Hold **Left Arrow** or **A** to brake. Use **Up/Down Arrow** or **W/S** to change lanes.
 
 ## Highlights
 
-- Procedural terrain that grows steeper and rougher with distance
-- Fixed-step custom physics with suspension, wheel grip, momentum, air control, flips, and crash detection
-- Coins, fuel cans, freestyle bonuses, and locally flavored callouts
-- Pakistani flag, bunting, dhaba, mosque skyline, truck art, rickshaws, PSO signs, cows, and donkey carts
+- Full Three.js 3D scene with lighting, shadows, fog, moving scenery, and a chase camera
+- Three-lane traffic with sedans, hatchbacks, vans, pickups, buses, semi-trucks, and motorcycles
+- Acceleration, braking, drag, different vehicle handling, body roll, pitch, suspension movement, and wheel rotation
+- Selectable hatchback, van, and pickup
+- Closing-speed collisions, close-pass bonuses, fuel cans, and coins
 - Responsive touch controls and keyboard support
 - Installable PWA with offline caching and fullscreen landscape mode
 - Zero-config Vite deployment on Vercel

@@ -1,5 +1,5 @@
 {
-  "name": "mehran-hill-climb",
+  "name": "highway-rush",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
+    "three": "latest",
     "vite": "latest",
     "react": "latest",
     "react-dom": "latest"
