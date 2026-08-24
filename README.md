@@ -1,8 +1,8 @@
-# Highway Rush
+# Deadly Descent
 
-A 3D endless traffic game with a behind-the-car highway camera, responsive lane changing, varied traffic, and long-distance runs.
+A 3D mountain-road driving game with a rear chase camera, continuous steering, steep descents, traffic, and vehicle physics.
 
-![Highway Rush 3D start screen](game-preview.png)
+![Deadly Descent start screen](game-preview.png)
 
 ## Play locally
 
@@ -11,15 +11,16 @@ npm install
 npm run dev
 ```
 
-Then open the URL shown by Vite. Hold **Right Arrow**, **D**, or **Space** for gas. Hold **Left Arrow** or **A** to brake. Use **Up/Down Arrow** or **W/S** to change lanes.
+Then open the URL shown by Vite. Use **Up Arrow**, **W**, or **Space** for gas; **Down Arrow** or **S** to brake; and **Left/Right Arrow** or **A/D** to steer.
 
 ## Highlights
 
-- Full Three.js 3D scene with lighting, shadows, fog, moving scenery, and a chase camera
-- Three-lane traffic with sedans, hatchbacks, vans, pickups, buses, semi-trucks, and motorcycles
-- Acceleration, braking, drag, different vehicle handling, body roll, pitch, suspension movement, and wheel rotation
-- Selectable hatchback, van, and pickup
-- Closing-speed collisions, close-pass bonuses, fuel cans, and coins
+- Curving, rolling 30 km mountain descent generated from a continuous road function
+- High-resolution original asphalt and alpine ground textures with bump mapping and anisotropic filtering
+- Atmospheric sky shader, exponential distance fog, dynamic lighting, soft shadows, guardrails, rocks, and detailed trees
+- Continuous steering, slope gravity, acceleration, braking, drag, off-road grip loss, body roll, suspension movement, and wheel rotation
+- Classic sedan, rally sedan, and pickup handling profiles
+- Moving traffic, closing-speed collisions, close-pass bonuses, fuel cans, and coins
 - Responsive touch controls and keyboard support
 - Installable PWA with offline caching and fullscreen landscape mode
 - Zero-config Vite deployment on Vercel

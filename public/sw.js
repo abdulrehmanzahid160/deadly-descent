@@ -1,4 +1,4 @@
-const CACHE = 'highway-rush-v1'
+const CACHE = 'deadly-descent-v1'
 const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg']
 
 self.addEventListener('install', (event) => {

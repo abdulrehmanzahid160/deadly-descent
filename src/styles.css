@@ -27,6 +27,8 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .modal::before, .modal::after { content:''; position:absolute; top:18px; bottom:18px; width:8px; border-block:2px solid #f6d16f; opacity:.55; }
 .modal::before { left:12px; border-left:2px solid #f6d16f; border-radius:8px 0 0 8px; }
 .modal::after { right:12px; border-right:2px solid #f6d16f; border-radius:0 8px 8px 0; }
+.intro { left:72%; top:36%; width:min(420px,56vw); }
+.intro h1 { font-size:clamp(40px,5.2vw,64px); }
 .eyebrow { margin: 0 0 5px; color: #f4c64c; font-size: 11px; letter-spacing: .25em; font-weight: 900; }
 .modal h1, .modal h2 { margin: 0; font: 400 clamp(38px,7vw,67px)/.82 'Black Ops One', Impact, sans-serif; letter-spacing: .02em; text-shadow: 0 4px 0 #0b222f; }
 .modal h1 em { color: #f4c64c; font-style: normal; font-size: .77em; }
@@ -60,4 +62,5 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 @keyframes pop { from { transform:translateX(-50%) scale(.3) rotate(-8deg); opacity:0; } 70% { transform:translateX(-50%) scale(1.15) rotate(2deg); } }
 .landscape-hint { display:none; }
 @media (max-width:700px) { .hud { grid-template-columns:125px minmax(120px,210px) 120px; gap:7px; top:8px; left:9px; right:9px; } .score-card,.stats-card,.fuel-wrap{padding:6px 8px;border-radius:9px}.score-card strong{font-size:18px}.stats-card{gap:6px;font-size:9px}.modal{top:45%;padding:13px 28px 15px}.tagline{margin:6px 0 8px}.ride-picker{margin-bottom:8px}.controls{bottom:10px}.pedal{height:68px;border-radius:15px;padding:8px}.pedal b{font-size:14px}.pedal span{font-size:24px}.lane-controls{bottom:11px}.lane-controls button{height:48px} }
+@media (max-width:900px) { .intro { left:50%; top:43%; width:min(470px,76vw); } }
 @media (orientation:portrait) and (max-width:650px) { .landscape-hint { display:block; position:absolute; z-index:10; bottom:0; left:0; right:0; padding:8px; background:#173b50; color:#f7d56c; text-align:center; font-size:10px; font-weight:900; } .hud{grid-template-columns:1fr 1fr}.stats-card{display:none}.modal{width:88vw}.controls{bottom:34px} }

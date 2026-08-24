@@ -3,3 +3,5 @@ dist
 .DS_Store
 *.local
 .vercel
+chrome-test-profile*/
+gameplay-preview.png

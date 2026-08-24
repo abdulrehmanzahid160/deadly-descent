@@ -1,7 +1,7 @@
 {
-  "name": "Highway Rush",
-  "short_name": "Highway Rush",
-  "description": "An endless side-view traffic driving game.",
+  "name": "Deadly Descent",
+  "short_name": "Descent",
+  "description": "An endless 3D mountain road driving game.",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "landscape",

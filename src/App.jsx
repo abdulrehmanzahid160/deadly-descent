@@ -2,20 +2,21 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createGame } from './game.js'
 
 const INITIAL_HUD = { distance: 0, fuel: 100, coins: 0, bonus: 0, speed: 0, passed: 0, popup: '' }
+const DEMO_MODE = new URLSearchParams(window.location.search).has('demo')
 const RIDES = [
-  { id: 'hatch', name: 'Hatchback', detail: 'Light & quick' },
-  { id: 'van', name: 'Van', detail: 'Stable & calm' },
-  { id: 'pickup', name: 'Pickup', detail: 'Heavy & strong' },
+  { id: 'sedan', name: 'Classic', detail: 'Balanced' },
+  { id: 'rally', name: 'Rally', detail: 'Fast & agile' },
+  { id: 'pickup', name: 'Pickup', detail: 'Heavy & stable' },
 ]
 
 function App() {
   const canvasRef = useRef(null)
   const gameRef = useRef(null)
   const [hud, setHud] = useState(INITIAL_HUD)
-  const [phase, setPhase] = useState('ready')
-  const [best, setBest] = useState(() => Number(localStorage.getItem('highway-rush-best') || 0))
+  const [phase, setPhase] = useState(DEMO_MODE ? 'playing' : 'ready')
+  const [best, setBest] = useState(() => Number(localStorage.getItem('deadly-descent-best') || 0))
   const [muted, setMuted] = useState(false)
-  const [ride, setRide] = useState('hatch')
+  const [ride, setRide] = useState('sedan')
 
   useEffect(() => {
     const game = createGame(canvasRef.current, {
@@ -24,12 +25,16 @@ function App() {
         setPhase('crashed')
         setBest((previous) => {
           const next = Math.max(previous, distance)
-          localStorage.setItem('highway-rush-best', String(next))
+          localStorage.setItem('deadly-descent-best', String(next))
           return next
         })
       },
     })
     gameRef.current = game
+    if (DEMO_MODE) {
+      game.start('sedan')
+      game.setControl('gas', true)
+    }
     return () => game.destroy()
   }, [])
 
@@ -44,7 +49,7 @@ function App() {
   useEffect(() => {
     if (phase !== 'ready') return undefined
     const beginOnKey = (event) => {
-      if (['ArrowRight', 'ArrowLeft', 'KeyA', 'KeyD', 'Space'].includes(event.code)) start()
+      if (['ArrowUp', 'ArrowDown', 'ArrowRight', 'ArrowLeft', 'KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space'].includes(event.code)) start()
     }
     window.addEventListener('keydown', beginOnKey)
     return () => window.removeEventListener('keydown', beginOnKey)
@@ -60,7 +65,7 @@ function App() {
 
   return (
     <main className="game-shell">
-      <canvas ref={canvasRef} aria-label="Highway Rush 3D game world" />
+      <canvas ref={canvasRef} aria-label="Deadly Descent 3D mountain road" />
 
       <section className="hud" aria-live="polite">
         <div className="score-card">
@@ -83,9 +88,9 @@ function App() {
 
       {phase === 'ready' && (
         <section className="modal intro">
-          <p className="eyebrow">ENDLESS TRAFFIC RUN</p>
-          <h1>HIGHWAY<br/><em>RUSH</em></h1>
-          <p className="tagline">Read the traffic. Find the gap. Keep moving.</p>
+          <p className="eyebrow">MOUNTAIN ROAD CHALLENGE</p>
+          <h1>DEADLY<br/><em>DESCENT</em></h1>
+          <p className="tagline">Control the speed. Hold the line. Survive the mountain.</p>
           <div className="ride-picker" aria-label="Choose your vehicle">
             {RIDES.map((option) => (
               <button key={option.id} className={ride === option.id ? 'selected' : ''} onClick={() => setRide(option.id)}>
@@ -94,14 +99,14 @@ function App() {
             ))}
           </div>
           <button className="primary" onClick={start}>START ENGINE <span>›</span></button>
-          <div className="howto"><span>↑ ↓ CHANGE LANE</span><span>← BRAKE</span><span>GAS →</span></div>
+          <div className="howto"><span>← → STEER</span><span>↓ BRAKE</span><span>GAS ↑</span></div>
         </section>
       )}
 
       {phase === 'crashed' && (
         <section className="modal game-over">
           <p className="eyebrow">RUN OVER</p>
-          <h2>TRAFFIC<br/>WINS</h2>
+          <h2>OFF THE<br/>ROAD</h2>
           <p><b>{hud.distance.toFixed(2)} km</b> travelled</p>
           <p className="bonus-line">Freestyle bonus: {hud.bonus}</p>
           <button className="primary" onClick={start}>TRY AGAIN <span>↻</span></button>
@@ -110,15 +115,15 @@ function App() {
 
       <section className="controls" aria-label="Driving controls">
         <button data-control="brake" className="pedal brake" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
-          <span>◀</span><b>BRAKE</b><small>DECELERATE</small>
+          <span>▼</span><b>BRAKE</b><small>DECELERATE</small>
         </button>
         <button data-control="gas" className="pedal gas" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
-          <span>▶</span><b>GAS</b><small>ACCELERATE</small>
+          <span>▲</span><b>GAS</b><small>ACCELERATE</small>
         </button>
       </section>
-      <section className="lane-controls" aria-label="Lane controls">
-        <button data-control="laneUp" onPointerDown={handleControl}>↑<small>LANE</small></button>
-        <button data-control="laneDown" onPointerDown={handleControl}>↓<small>LANE</small></button>
+      <section className="lane-controls" aria-label="Steering controls">
+        <button data-control="steerLeft" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>←<small>STEER</small></button>
+        <button data-control="steerRight" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>→<small>STEER</small></button>
       </section>
       <div className="landscape-hint">Rotate your phone for the full highway view</div>
     </main>
