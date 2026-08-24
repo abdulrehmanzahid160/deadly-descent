@@ -302,7 +302,7 @@ export function createGame(canvas, callbacks) {
     guardrails.push({ mesh: group, s: 30 + Math.floor(i / 2) * 10, offset: side * 6.25 })
   }
 
-  const controls = { gas: false, brake: false, steerLeft: false, steerRight: false }
+  const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
   const state = {
     running: false, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
     offset: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0,
@@ -443,13 +443,15 @@ export function createGame(canvas, callbacks) {
     const frame = roadFrame(state.progress)
     const downhillPull = clamp(-frame.tangent.y * 30, -3, 7)
     const offroad = Math.abs(state.offset) > ROAD_HALF - .55
+    const boosting = controls.boost && state.fuel > 0
     const throttle = controls.gas && state.fuel > 0 ? profile.power : 0
+    const boostPower = boosting ? 24 : 0
     const braking = controls.brake ? 27 : 0
     const drag = 1.15 + state.speed * .025 + (offroad ? 13 : 0)
-    state.speed = clamp(state.speed + (throttle + downhillPull - braking - drag) * dt, 0, profile.top)
+    state.speed = clamp(state.speed + (throttle + boostPower + downhillPull - braking - drag) * dt, 0, profile.top + (boosting ? 18 : 0))
     state.progress += state.speed * dt
     state.distance = (state.progress - 20) / 1000
-    state.fuel = Math.max(0, state.fuel - dt * (.1 + (controls.gas ? .62 : 0)))
+    state.fuel = Math.max(0, state.fuel - dt * (.1 + (controls.gas ? .62 : 0) + (boosting ? 1.65 : 0)))
 
     const steer = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
     const steeringForce = steer * profile.steer * (.3 + state.speed / profile.top)
@@ -461,7 +463,7 @@ export function createGame(canvas, callbacks) {
     const suspension = Math.sin(state.time * (5 + state.speed * .3)) * Math.min(.07, state.speed * .0015)
     placeObject(player, state.progress, state.offset, .08 + suspension)
     player.rotateZ(-state.lateralSpeed * .035)
-    player.rotateX((controls.brake ? -.04 : controls.gas ? .025 : 0) + (offroad ? Math.sin(state.time * 22) * .025 : 0))
+    player.rotateX((controls.brake ? -.04 : controls.gas || boosting ? .025 : 0) + (offroad ? Math.sin(state.time * 22) * .025 : 0))
     for (const wheel of player.userData.wheels) wheel.rotation.x -= state.speed * dt / .43
 
     for (const vehicle of state.traffic) {
@@ -516,6 +518,9 @@ export function createGame(canvas, callbacks) {
     const lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
     camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-7 * dt))
     camera.lookAt(lookTarget)
+    const targetFov = controls.boost && state.running ? 68 : 62
+    camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt))
+    camera.updateProjectionMatrix()
   }
 
   function reportHud() {
@@ -535,7 +540,7 @@ export function createGame(canvas, callbacks) {
 
   function key(event, down) {
     const mapping = {
-      ArrowUp: 'gas', KeyW: 'gas', Space: 'gas', ArrowDown: 'brake', KeyS: 'brake',
+      ArrowUp: 'gas', KeyW: 'gas', Space: 'boost', ArrowDown: 'brake', KeyS: 'brake',
       ArrowLeft: 'steerLeft', KeyA: 'steerLeft', ArrowRight: 'steerRight', KeyD: 'steerRight',
     }
     const control = mapping[event.code]

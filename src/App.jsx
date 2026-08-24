@@ -99,7 +99,7 @@ function App() {
             ))}
           </div>
           <button className="primary" onClick={start}>START ENGINE <span>›</span></button>
-          <div className="howto"><span>← → STEER</span><span>↓ BRAKE</span><span>GAS ↑</span></div>
+          <div className="howto"><span>← → STEER</span><span>↓ BRAKE</span><span>↑ DRIVE</span><span>SPACE BOOST</span></div>
         </section>
       )}
 

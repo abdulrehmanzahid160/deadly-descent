@@ -11,14 +11,14 @@ npm install
 npm run dev
 ```
 
-Then open the URL shown by Vite. Use **Up Arrow**, **W**, or **Space** for gas; **Down Arrow** or **S** to brake; and **Left/Right Arrow** or **A/D** to steer.
+Then open the URL shown by Vite. Use **Up Arrow** or **W** for normal acceleration, **Space** for boost, **Down Arrow** or **S** to brake, and **Left/Right Arrow** or **A/D** to steer.
 
 ## Highlights
 
 - Curving, rolling 30 km mountain descent generated from a continuous road function
 - High-resolution original asphalt and alpine ground textures with bump mapping and anisotropic filtering
 - Atmospheric sky shader, exponential distance fog, dynamic lighting, soft shadows, guardrails, rocks, and detailed trees
-- Continuous steering, slope gravity, acceleration, braking, drag, off-road grip loss, body roll, suspension movement, and wheel rotation
+- Continuous steering, slope gravity, acceleration, fuel-consuming boost, braking, drag, off-road grip loss, body roll, suspension movement, and wheel rotation
 - Classic sedan, rally sedan, and pickup handling profiles
 - Moving traffic, closing-speed collisions, close-pass bonuses, fuel cans, and coins
 - Responsive touch controls and keyboard support
