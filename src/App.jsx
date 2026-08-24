@@ -63,13 +63,13 @@ function App() {
           <span className="best">BEST {best.toFixed(2)} km</span>
         </div>
         <div className="fuel-wrap">
-          <div className="fuel-title"><span>⛽ FUEL</span><b>{Math.round(hud.fuel)}%</b></div>
+          <div className="fuel-title"><span><i className="fuel-icon" /> FUEL</span><b>{Math.round(hud.fuel)}%</b></div>
           <div className="fuel-track"><i style={{ width: `${hud.fuel}%` }} /></div>
         </div>
         <div className="stats-card">
-          <span>🪙 {hud.coins}</span>
+          <span>Rs. {hud.coins}</span>
           <span>{Math.round(hud.speed)} km/h</span>
-          <button className="sound" onClick={() => setMuted((value) => !value)} aria-label="Toggle sound">{muted ? '🔇' : '🔊'}</button>
+          <button className="sound" onClick={() => setMuted((value) => !value)} aria-label="Toggle sound">{muted ? 'SOUND OFF' : 'SOUND ON'}</button>
         </div>
       </section>
 
@@ -77,7 +77,7 @@ function App() {
 
       {phase === 'ready' && (
         <section className="modal intro">
-          <div className="moon">☾<span>★</span></div>
+          <div className="crescent-mark" aria-hidden="true"><i /><span>★</span></div>
           <p className="eyebrow">PAKISTAN KI SHAAN</p>
           <h1>MEHRAN<br/><em>HILL CLIMB</em></h1>
           <p className="tagline">GT Road se paharon tak — kitni door jao ge?</p>

@@ -20,7 +20,9 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .fuel-track { height: 13px; padding: 2px; background: #173024; border: 1px solid #b9ccb9; border-radius: 8px; overflow: hidden; }
 .fuel-track i { display: block; height: 100%; min-width: 0; background: linear-gradient(90deg,#ffbd33,#f5df6d); border-radius: 5px; transition: width .25s; }
 .stats-card { display: flex; align-items: center; gap: 13px; font-size: 12px; font-weight: 900; justify-content: flex-end; }
-.sound { pointer-events: auto; color: white; background: none; border: 0; padding: 2px; cursor: pointer; }
+.sound { pointer-events: auto; color: #f8db91; background: none; border: 0; padding: 2px; cursor: pointer; font-size: 7px; font-weight: 900; letter-spacing: .08em; }
+.fuel-icon { display:inline-block; width:8px; height:9px; margin-right:2px; border:1px solid currentColor; border-radius:1px; vertical-align:-1px; position:relative; }
+.fuel-icon::after { content:''; position:absolute; width:3px; height:5px; right:-4px; top:1px; border:1px solid currentColor; border-left:0; border-radius:0 2px 2px 0; }
 .modal { position: absolute; z-index: 5; left: 50%; top: 48%; transform: translate(-50%,-50%); width: min(430px, 74vw); padding: 21px 34px 23px; text-align: center; background: linear-gradient(145deg,rgba(1,65,28,.96),rgba(1,48,22,.96)); border: 3px solid #f6d16f; border-radius: 22px; box-shadow: 0 12px 0 rgba(41,22,5,.25), 0 28px 60px rgba(20,14,3,.32), inset 0 0 0 3px rgba(255,255,255,.12); }
 .modal::before, .modal::after { content:''; position:absolute; top:18px; bottom:18px; width:8px; border-block:2px solid #f6d16f; opacity:.55; }
 .modal::before { left:12px; border-left:2px solid #f6d16f; border-radius:8px 0 0 8px; }
@@ -30,8 +32,9 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block
 .modal h1 em { color: #f4c64c; font-style: normal; font-size: .77em; }
 .modal h2 { color:#f7d56c; font-size:clamp(35px,6vw,58px); }
 .tagline { margin: 14px auto 16px; font-size: 12px; opacity: .86; }
-.moon { position:absolute; right:25px; top:18px; color:white; font-size:28px; transform:rotate(-15deg); }
-.moon span { font-size:10px; position:absolute; left:8px; top:8px; }
+.crescent-mark { position:absolute; right:27px; top:24px; width:24px; height:24px; border-radius:50%; background:#fff; transform:rotate(-16deg); }
+.crescent-mark i { position:absolute; width:21px; height:21px; left:7px; top:-2px; border-radius:50%; background:#064a24; }
+.crescent-mark span { font-size:8px; position:absolute; color:white; left:19px; top:-5px; transform:rotate(16deg); }
 .primary { position:relative; z-index:2; border: 2px solid #fff3bf; border-radius: 10px; padding: 11px 24px; min-width: 230px; color:#113b22; background: linear-gradient(#ffe188,#eab33d); font-weight: 900; font-size: 13px; box-shadow: 0 4px 0 #9a6a14; cursor: pointer; }
 .primary:active { transform:translateY(3px); box-shadow:0 1px 0 #9a6a14; }
 .primary span { margin-left:14px; font-size:18px; }

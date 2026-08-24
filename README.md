@@ -2,6 +2,8 @@
 
 A playful, physics-based endless driving game inspired by Pakistan's beloved Suzuki Mehran and the colorful chaos of GT Road.
 
+![Mehran Hill Climb start screen](game-preview.png)
+
 ## Play locally
 
 ```bash

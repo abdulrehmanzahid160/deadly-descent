@@ -55,7 +55,13 @@ export function createGame(canvas, callbacks) {
     const fract = x / nodeSize - node
     const randomHill = lerp(hash(node), hash(node + 1), smooth(fract)) * (28 + difficulty * 115)
     const starter = clamp((x - 300) / 900, 0, 1)
-    return height * .69 + (broad + mid + randomHill) * starter
+    const hazardIndex = Math.floor(x / 1050)
+    const hazardCenter = (hazardIndex + .5) * 1050 + hash(hazardIndex + 200) * 190
+    const hazardDistance = Math.abs(x - hazardCenter)
+    const hazardWidth = hazardIndex % 2 === 0 ? 44 : 78
+    const hazardShape = hazardDistance < hazardWidth ? (1 - hazardDistance / hazardWidth) ** 2 : 0
+    const roadHazard = hazardShape * (hazardIndex % 2 === 0 ? -18 : 25 + difficulty * 11)
+    return height * .69 + (broad + mid + randomHill + roadHazard) * starter
   }
 
   function terrainSlope(x) {
@@ -222,6 +228,22 @@ export function createGame(canvas, callbacks) {
       }
     }
 
+    const propIndex = Math.round(car.x / 850)
+    for (let i = propIndex - 1; i <= propIndex + 1; i += 1) {
+      const propX = i * 850 + hash(i + 50) * 160
+      const kind = Math.abs(i) % 5
+      const key = `prop-${i}`
+      if ((kind === 3 || kind === 4) && !state.seen.has(key) && car.x > propX + 65) {
+        state.seen.add(key)
+        const clearance = terrainY(car.x) - car.y
+        if (clearance > 72 && car.x < propX + 190) {
+          state.bonus += 250
+          showPopup(kind === 3 ? 'COW DODGE! ZABARDAST +250' : 'CART JUMP! SHABASH +250')
+          beep(610, .11, 'triangle', .03)
+        }
+      }
+    }
+
     seedPickups(car.x + 6000, car.x + 10000)
     state.pickups = state.pickups.filter((pickup) => pickup.x > car.x - 1000)
 
@@ -372,6 +394,16 @@ export function createGame(canvas, callbacks) {
     for (let x=left;x<=right;x+=10) { const y=terrainY(x); if(x===left)ctx.moveTo(x,y);else ctx.lineTo(x,y) }
     ctx.stroke()
     ctx.strokeStyle='#b68a3f';ctx.lineWidth=5;ctx.stroke()
+    const hazardStart=Math.floor(left/1050)-1,hazardEnd=Math.ceil(right/1050)+1
+    for(let i=hazardStart;i<=hazardEnd;i+=1){
+      const hx=(i+.5)*1050+hash(i+200)*190
+      if(i%2===0){
+        const hy=terrainY(hx)-5;ctx.strokeStyle='#e8b837';ctx.lineWidth=4
+        for(let stripe=-24;stripe<=24;stripe+=12){ctx.beginPath();ctx.moveTo(hx+stripe,hy-2);ctx.lineTo(hx+stripe+7,hy+2);ctx.stroke()}
+      }else{
+        ctx.fillStyle='rgba(35,28,18,.55)';ctx.beginPath();ctx.ellipse(hx,terrainY(hx)-2,42,8,0,0,TAU);ctx.fill()
+      }
+    }
     ctx.restore()
   }
 
@@ -402,16 +434,41 @@ export function createGame(canvas, callbacks) {
   function drawCar() {
     const car=state.car
     ctx.save();ctx.translate(car.x-state.cameraX,car.y-state.cameraY);ctx.rotate(car.angle)
-    ctx.strokeStyle='#1d2721';ctx.lineWidth=5
-    for(const wx of [-48,48]){ctx.beginPath();ctx.moveTo(wx,-1);ctx.lineTo(wx,27);ctx.stroke()}
-    for(const wx of [-48,48]){ctx.save();ctx.translate(wx,29);ctx.rotate(state.wheelSpin);ctx.fillStyle='#172019';ctx.beginPath();ctx.arc(0,0,25,0,TAU);ctx.fill();ctx.strokeStyle='#111';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#b9b4a8';ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.fill();ctx.strokeStyle='#4b514c';ctx.lineWidth=2;for(let i=0;i<6;i+=1){ctx.rotate(TAU/6);ctx.beginPath();ctx.moveTo(4,0);ctx.lineTo(18,0);ctx.stroke()}ctx.restore()}
-    ctx.fillStyle='#e9e6dc';ctx.strokeStyle='#203027';ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-70,18);ctx.lineTo(-66,-18);ctx.lineTo(-43,-31);ctx.lineTo(-22,-52);ctx.lineTo(32,-52);ctx.lineTo(57,-28);ctx.lineTo(70,-23);ctx.lineTo(72,18);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.fillStyle='#8da5a0';ctx.beginPath();ctx.moveTo(-34,-29);ctx.lineTo(-16,-47);ctx.lineTo(4,-47);ctx.lineTo(4,-28);ctx.closePath();ctx.fill();ctx.stroke();ctx.beginPath();ctx.moveTo(10,-47);ctx.lineTo(29,-47);ctx.lineTo(48,-28);ctx.lineTo(10,-28);ctx.closePath();ctx.fill();ctx.stroke()
-    ctx.strokeStyle='#a4a39d';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(5,-48);ctx.lineTo(5,10);ctx.stroke()
-    ctx.fillStyle='#01411c';ctx.fillRect(-67,6,139,9)
-    ctx.fillStyle='#f6cf55';ctx.strokeStyle='#203027';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(65,-14,8,6,0,0,TAU);ctx.fill();ctx.stroke()
-    ctx.fillStyle='#303b35';for(let i=0;i<3;i+=1)ctx.fillRect(66,-5+i*5,7,2)
-    ctx.fillStyle='#fff';ctx.font='900 8px Montserrat';ctx.textAlign='center';ctx.fillText('MEHRAN',-22,8)
+    // Exposed struts keep the suspension readable without changing the Mehran proportions.
+    ctx.strokeStyle='#273129';ctx.lineWidth=4
+    for(const wx of [-50,50]){ctx.beginPath();ctx.moveTo(wx,3);ctx.lineTo(wx,27);ctx.stroke()}
+
+    // Small steel wheels and tall tyre sidewalls are a defining Mehran detail.
+    for(const wx of [-50,50]){ctx.save();ctx.translate(wx,29);ctx.rotate(state.wheelSpin);ctx.fillStyle='#151a17';ctx.beginPath();ctx.arc(0,0,23,0,TAU);ctx.fill();ctx.strokeStyle='#30342f';ctx.lineWidth=2;ctx.stroke();ctx.fillStyle='#a7aaa4';ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.fill();ctx.strokeStyle='#5b605a';ctx.lineWidth=2;for(let i=0;i<8;i+=1){ctx.rotate(TAU/8);ctx.beginPath();ctx.moveTo(3,0);ctx.lineTo(9,0);ctx.stroke()}ctx.fillStyle='#626761';ctx.beginPath();ctx.arc(0,0,3,0,TAU);ctx.fill();ctx.restore()}
+
+    // First-generation Mehran / Alto SB308 silhouette: flat roof, upright hatch and short bonnet.
+    ctx.fillStyle='#e7e5dd';ctx.strokeStyle='#263129';ctx.lineWidth=4;ctx.lineJoin='round';ctx.beginPath()
+    ctx.moveTo(-82,17);ctx.lineTo(-81,-25);ctx.lineTo(-67,-45);ctx.lineTo(-51,-53);ctx.lineTo(24,-53);ctx.lineTo(48,-29);ctx.lineTo(76,-25);ctx.lineTo(81,-15);ctx.lineTo(80,17);ctx.closePath();ctx.fill();ctx.stroke()
+
+    // Dark straight bumpers, wheel arches and the unadorned lower crease.
+    ctx.strokeStyle='#333b35';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-84,10);ctx.lineTo(-70,10);ctx.moveTo(70,10);ctx.lineTo(83,10);ctx.stroke()
+    ctx.strokeStyle='#777a74';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-76,1);ctx.lineTo(75,1);ctx.stroke()
+    ctx.strokeStyle='#263129';ctx.lineWidth=3;ctx.beginPath();ctx.arc(-50,20,27,Math.PI,TAU);ctx.moveTo(23,20);ctx.arc(50,20,27,Math.PI,TAU);ctx.stroke()
+
+    // The large square glasshouse is split by thin B- and C-pillars into four-door proportions.
+    ctx.fillStyle='#77918c';ctx.strokeStyle='#263129';ctx.lineWidth=3
+    ctx.beginPath();ctx.moveTo(-61,-43);ctx.lineTo(-48,-49);ctx.lineTo(-27,-49);ctx.lineTo(-27,-28);ctx.lineTo(-68,-28);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.beginPath();ctx.moveTo(-22,-49);ctx.lineTo(1,-49);ctx.lineTo(1,-28);ctx.lineTo(-22,-28);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.beginPath();ctx.moveTo(6,-49);ctx.lineTo(22,-49);ctx.lineTo(42,-29);ctx.lineTo(6,-29);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.fillStyle='rgba(224,235,226,.35)';ctx.beginPath();ctx.moveTo(-18,-46);ctx.lineTo(-2,-46);ctx.lineTo(-2,-42);ctx.lineTo(-18,-42);ctx.fill();ctx.beginPath();ctx.moveTo(10,-46);ctx.lineTo(21,-46);ctx.lineTo(26,-41);ctx.lineTo(10,-41);ctx.fill()
+
+    // Four door seams, simple pull handles and the characteristic black side moulding.
+    ctx.strokeStyle='#8d8e88';ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(-25,-26);ctx.lineTo(-25,9);ctx.moveTo(4,-27);ctx.lineTo(4,9);ctx.moveTo(46,-26);ctx.lineTo(46,8);ctx.stroke()
+    ctx.fillStyle='#303832';ctx.fillRect(-17,-20,10,2.5);ctx.fillRect(17,-20,10,2.5)
+    ctx.fillStyle='#303832';ctx.fillRect(-73,3,146,6)
+
+    // Trapezoid headlamp, narrow front grille, amber indicator and vertical rear lamp.
+    ctx.fillStyle='#f4dfa1';ctx.strokeStyle='#263129';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(69,-22);ctx.lineTo(79,-19);ctx.lineTo(78,-10);ctx.lineTo(67,-11);ctx.closePath();ctx.fill();ctx.stroke()
+    ctx.fillStyle='#d9922e';ctx.fillRect(76,-9,5,6)
+    ctx.fillStyle='#202923';for(let i=0;i<3;i+=1)ctx.fillRect(75,-2+i*3,7,1.5)
+    ctx.fillStyle='#b8322d';ctx.fillRect(-83,-21,6,16)
+    ctx.fillStyle='#263129';ctx.beginPath();ctx.moveTo(48,-31);ctx.lineTo(55,-35);ctx.lineTo(58,-31);ctx.closePath();ctx.fill()
+    ctx.fillStyle='#4f5550';ctx.font='700 6px Montserrat';ctx.textAlign='center';ctx.fillText('MEHRAN',-5,-8)
     ctx.restore()
   }
 
