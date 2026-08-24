@@ -221,7 +221,105 @@ function createRock(seed) {
   return rock
 }
 
+function signMaterial(label, background, foreground = '#ffffff') {
+  const canvas = document.createElement('canvas')
+  canvas.width = 768
+  canvas.height = 256
+  const context = canvas.getContext('2d')
+  context.fillStyle = background
+  context.fillRect(0, 0, canvas.width, canvas.height)
+  context.strokeStyle = 'rgba(255,255,255,.7)'
+  context.lineWidth = 18
+  context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24)
+  context.fillStyle = foreground
+  context.font = '900 112px Arial, sans-serif'
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+  context.fillText(label, canvas.width / 2, canvas.height / 2 + 5)
+  const texture = new THREE.CanvasTexture(canvas)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 8
+  return new THREE.MeshStandardMaterial({ map: texture, roughness: .5, emissive: new THREE.Color(background), emissiveIntensity: .08 })
+}
+
+function createFuelStation(side) {
+  const group = new THREE.Group()
+  const parking = roundedBox(18, .12, 22, 0x383c3d, .05, 0, .02, 0)
+  parking.receiveShadow = true
+  group.add(parking)
+  const shop = roundedBox(10, 3.6, 5.8, 0xe5e0d4, .16, side * 2.7, 1.85, -5.6)
+  group.add(shop)
+  const shopFrontX = side > 0 ? -2.32 : 2.32
+  for (let z = -7.4; z <= -4.2; z += 1.6) {
+    const window = meshBox(.06, 1.55, 1.15, 0x5d8995, shopFrontX, 1.9, z)
+    window.material = new THREE.MeshStandardMaterial({ color: 0x6e9ca8, emissive: 0x183e48, emissiveIntensity: .4, roughness: .25, metalness: .12 })
+    group.add(window)
+  }
+  const canopy = roundedBox(12.5, .42, 7.2, 0xf2f1eb, .12, -side * 2.1, 4.35, 2.3)
+  group.add(canopy)
+  group.add(meshBox(12.7, .34, 7.35, 0xc93d36, -side * 2.1, 4.13, 2.3))
+  for (const x of [-side * 5.5, side * 1.1]) {
+    for (const z of [.15, 4.45]) {
+      const column = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, 4.1, 12), mat(0xd8d9d4, .55, .18))
+      column.position.set(x, 2.05, z)
+      column.castShadow = true
+      group.add(column)
+    }
+  }
+  for (const z of [.8, 3.8]) {
+    const pump = roundedBox(.9, 1.65, .72, 0xe8e8e2, .12, -side * 2.15, .88, z)
+    group.add(pump)
+    group.add(meshBox(.48, .37, .04, 0x17272d, -side * 2.15, 1.14, z + .38))
+    const hose = new THREE.Mesh(new THREE.TorusGeometry(.48, .045, 8, 20, Math.PI * 1.4), mat(0x16191a, .9))
+    hose.position.set(-side * 2.15 + side * .6, .9, z)
+    hose.rotation.y = Math.PI / 2
+    group.add(hose)
+  }
+  const pylon = meshBox(.34, 6.4, .34, 0x4d5254, -side * 7.4, 3.2, 6.7)
+  group.add(pylon)
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.45), signMaterial('FUEL', '#b52f2f'))
+  sign.position.set(-side * 7.4, 6.1, 6.9)
+  group.add(sign)
+  return group
+}
+
+function createRoadsideRestaurant(side) {
+  const group = new THREE.Group()
+  const parking = roundedBox(17, .12, 19, 0x47494a, .05, 0, .02, 0)
+  parking.receiveShadow = true
+  group.add(parking)
+  const building = roundedBox(12, 4.3, 8, 0x9f6649, .18, side * 1.8, 2.2, -2.4)
+  group.add(building)
+  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.8, 2.1, 4), mat(0x49372f, .9))
+  roof.rotation.y = Math.PI / 4
+  roof.position.set(side * 1.8, 5.25, -2.4)
+  roof.scale.z = .72
+  roof.castShadow = true
+  group.add(roof)
+  const frontX = side > 0 ? -4.24 : 4.24
+  for (let z = -4.9; z <= .1; z += 1.75) {
+    const window = meshBox(.07, 1.55, 1.25, 0xffc66e, frontX, 2.35, z)
+    window.material = new THREE.MeshStandardMaterial({ color: 0x7b9da2, emissive: 0xe49332, emissiveIntensity: .75, roughness: .22 })
+    group.add(window)
+  }
+  const awning = meshBox(.95, .16, 6.5, 0xd8b65a, frontX - side * .42, 3.62, -2.3)
+  group.add(awning)
+  const signPosts = [-2.2, 2.2]
+  for (const x of signPosts) group.add(meshBox(.16, 3.2, .16, 0x55595b, x, 1.6, 6.1))
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 1.55), signMaterial('ROADHOUSE', '#8b3f2e', '#ffe5a2'))
+  sign.position.set(0, 3.72, 6.22)
+  group.add(sign)
+  for (const z of [-.5, 2.2]) {
+    const table = new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .1, 16), mat(0x745037, .8))
+    table.position.set(-side * 5.5, 1, z)
+    group.add(table)
+    group.add(meshBox(.12, 1, .12, 0x4a392f, -side * 5.5, .5, z))
+  }
+  return group
+}
+
 export function createGame(canvas, callbacks) {
+  const mobileDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -267,7 +365,7 @@ export function createGame(canvas, callbacks) {
   const sun = new THREE.DirectionalLight(0xffe5b1, 3.8)
   sun.position.set(-24, 42, 18)
   sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.mapSize.set(mobileDevice ? 1024 : 2048, mobileDevice ? 1024 : 2048)
   sun.shadow.camera.left = -28
   sun.shadow.camera.right = 28
   sun.shadow.camera.top = 28
@@ -309,10 +407,11 @@ export function createGame(canvas, callbacks) {
   }
 
   const scenery = []
-  for (let i = 0; i < 76; i += 1) {
+  const sceneryCount = mobileDevice ? 52 : 76
+  for (let i = 0; i < sceneryCount; i += 1) {
     const side = i % 2 ? 1 : -1
     const object = i % 5 === 0 ? createRock(i) : createTree(i)
-    const item = { mesh: object, s: 14 + i * 8.5, offset: side * (8 + (i % 6) * 2.2) }
+    const item = { mesh: object, s: 14 + i * 8.5, offset: side * (ROAD_HALF + 3 + (i % 6) * 2.2) }
     scene.add(object)
     scenery.push(item)
   }
@@ -325,6 +424,14 @@ export function createGame(canvas, callbacks) {
     group.add(meshBox(.16, .24, 5.6, 0xb9bdba, 0, .77, 0))
     scene.add(group)
     guardrails.push({ mesh: group, s: 30 + Math.floor(i / 2) * 10, offset: side * (ROAD_HALF + .55) })
+  }
+
+  const landmarks = []
+  for (let i = 0; i < 8; i += 1) {
+    const side = i % 2 ? 1 : -1
+    const landmark = i % 3 === 0 ? createFuelStation(side) : createRoadsideRestaurant(side)
+    scene.add(landmark)
+    landmarks.push({ mesh: landmark, s: 100 + i * 280, offset: side * (ROAD_HALF + 14) })
   }
 
   const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
@@ -360,12 +467,16 @@ export function createGame(canvas, callbacks) {
       placeObject(edge.mesh, edge.s, edge.offset, .04)
     }
     for (const item of scenery) {
-      recycle(item, 76 * 8.5, 30)
+      recycle(item, scenery.length * 8.5, 30)
       placeObject(item.mesh, item.s, item.offset, item.mesh.type === 'Mesh' ? .5 : 0)
     }
     for (const rail of guardrails) {
       recycle(rail, 29 * 10)
       placeObject(rail.mesh, rail.s, rail.offset, 0)
+    }
+    for (const landmark of landmarks) {
+      recycle(landmark, landmarks.length * 280, 120)
+      placeObject(landmark.mesh, landmark.s, landmark.offset, .03)
     }
   }
 
@@ -574,7 +685,8 @@ export function createGame(canvas, callbacks) {
 
   function resize() {
     const rect = canvas.getBoundingClientRect()
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2))
+    const compact = rect.width < 900 || rect.height < 560
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.35 : 2))
     renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false)
     camera.aspect = Math.max(1, rect.width) / Math.max(1, rect.height)
     camera.updateProjectionMatrix()

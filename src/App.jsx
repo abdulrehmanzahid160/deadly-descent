@@ -59,6 +59,8 @@ function App() {
     event.preventDefault()
     const name = event.currentTarget.dataset.control
     const down = event.type === 'pointerdown'
+    if (down) event.currentTarget.setPointerCapture?.(event.pointerId)
+    else if (event.currentTarget.hasPointerCapture?.(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId)
     if (phase === 'ready' && down) start()
     gameRef.current?.setControl(name, down)
   }, [phase, start])
@@ -125,6 +127,9 @@ function App() {
         <button data-control="steerLeft" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>←<small>STEER</small></button>
         <button data-control="steerRight" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>→<small>STEER</small></button>
       </section>
+      <button data-control="boost" className="boost-control" aria-label="Hold for boost" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
+        BOOST<small>NITRO</small>
+      </button>
       <div className="landscape-hint">Rotate your phone for the full highway view</div>
     </main>
   )
