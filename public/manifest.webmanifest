@@ -1,0 +1,13 @@
+{
+  "name": "Mehran Hill Climb",
+  "short_name": "Mehran Climb",
+  "description": "A Pakistani endless hill-climb driving game.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#102b20",
+  "theme_color": "#01411c",
+  "icons": [
+    { "src": "/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
