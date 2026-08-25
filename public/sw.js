@@ -1,5 +1,5 @@
-const CACHE = 'deadly-descent-v2'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg']
+const CACHE = 'deadly-descent-v3'
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/images/deadly-descent-cover.jpg']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))

@@ -7,6 +7,8 @@ body { touch-action: none; user-select: none; overscroll-behavior: none; }
 button { font: inherit; }
 .game-shell { position: relative; width: 100%; height: 100%; min-height: 360px; overflow: hidden; background: #d9a85e; }
 canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.cover-photo { position:absolute; z-index:2; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; user-select:none; }
+.phase-ready canvas{visibility:hidden}
 .hud { position: absolute; z-index: 4; top: max(14px, env(safe-area-inset-top)); left: max(18px, env(safe-area-inset-left)); right: max(18px, env(safe-area-inset-right)); display: grid; grid-template-columns: 170px minmax(170px, 300px) 180px; align-items: start; justify-content: space-between; pointer-events: none; filter: drop-shadow(0 3px 0 rgba(0,0,0,.18)); }
 .score-card, .stats-card, .fuel-wrap { background: rgba(17,43,57,.93); border: 2px solid rgba(255,255,255,.4); border-radius: 13px; padding: 9px 13px; box-shadow: inset 0 0 0 2px rgba(0,0,0,.1); }
 .score-card { display: flex; flex-direction: column; }

@@ -440,7 +440,7 @@ export function createGame(canvas, callbacks) {
 
   const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
   const state = {
-    running: false, cover: true, coverS: 72, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
+    running: false, cover: true, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
     offset: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0,
     popup: '', popupUntil: 0, time: 0, traffic: [], pickups: [], distance: 0, cameraMode: 'chase',
   }
@@ -574,20 +574,10 @@ export function createGame(canvas, callbacks) {
     vehicle.passed = false
   }
 
-  function updateCover(dt) {
-    state.coverS = 72 + Math.sin(state.time * .28) * 1.2
-    const jumpHeight = 3.8 + Math.sin(state.time * .7) * .22
-    placeObject(player, state.coverS, -2.1, jumpHeight)
-    player.rotateX(-.13 + Math.sin(state.time * .65) * .035)
-    player.rotateZ(Math.sin(state.time * .5) * .035)
-    for (const wheel of player.userData.wheels) wheel.rotation.x -= dt * 7.5
-  }
-
   function update(dt) {
     state.time += dt
-    refreshPools()
-    if (state.cover) updateCover(dt)
     if (!state.running || state.crashed) return
+    refreshPools()
     const profile = state.ride === 'rally'
       ? { power: 17, top: 54, steer: 12 }
       : state.ride === 'pickup'
@@ -668,10 +658,7 @@ export function createGame(canvas, callbacks) {
   function updateCamera(dt) {
     let cameraTargetPosition
     let lookTarget
-    if (state.cover) {
-      cameraTargetPosition = roadPosition(state.coverS - 11.5, 7.5, 6.6)
-      lookTarget = roadPosition(state.coverS + 2.5, -1.7, 2.6)
-    } else if (state.cameraMode === 'hood') {
+    if (state.cameraMode === 'hood') {
       cameraTargetPosition = roadPosition(state.progress, state.offset, 1.1)
       lookTarget = roadPosition(state.progress + 15, state.offset * .3, 1)
     } else if (state.cameraMode === 'interior') {
@@ -682,14 +669,14 @@ export function createGame(canvas, callbacks) {
       cameraTargetPosition = roadPosition(backS, state.offset * .45 + 2.15, 4.8)
       lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
     }
-    const interior = !state.cover && state.cameraMode === 'interior'
+    const interior = state.cameraMode === 'interior'
     player.visible = !interior
     cockpit.visible = interior
     const steerInput = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
     steeringWheel.rotation.z += ((-steerInput * .65) - steeringWheel.rotation.z) * (1 - Math.exp(-8 * dt))
     camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-7 * dt))
     camera.lookAt(lookTarget)
-    const targetFov = state.cover ? 57 : controls.boost && state.running ? 68 : 62
+    const targetFov = controls.boost && state.running ? 68 : 62
     camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt))
     camera.updateProjectionMatrix()
   }
@@ -739,16 +726,18 @@ export function createGame(canvas, callbacks) {
   resize()
   refreshPools()
   state.progress = 20
-  updateCover(0)
-  camera.position.copy(roadPosition(state.coverS - 11.5, 7.5, 6.6))
+  placeObject(player, state.progress, 0, .08)
+  camera.position.copy(roadPosition(9, 0, 4.8))
 
   function loop(now) {
     const dt = clamp((now - previousTime) / 1000, 0, .04)
     previousTime = now
-    update(dt)
-    updateCamera(dt)
-    renderer.render(scene, camera)
-    if (Math.floor(now / 100) !== Math.floor((now - dt * 1000) / 100)) reportHud()
+    if (!state.cover) {
+      update(dt)
+      updateCamera(dt)
+      renderer.render(scene, camera)
+      if (Math.floor(now / 100) !== Math.floor((now - dt * 1000) / 100)) reportHud()
+    }
     animationFrame = requestAnimationFrame(loop)
   }
   animationFrame = requestAnimationFrame(loop)

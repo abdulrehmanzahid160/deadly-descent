@@ -18,7 +18,7 @@ Then open the URL shown by Vite. Use **Up Arrow** or **W** for normal accelerati
 - Curving, rolling 30 km mountain descent generated from a continuous road function
 - High-resolution original asphalt and alpine ground textures with bump mapping and anisotropic filtering
 - Atmospheric sky shader, exponential distance fog, dynamic lighting, soft shadows, guardrails, rocks, and detailed trees
-- Real-time cinematic jump cover, detailed fuel stations, and illuminated roadside restaurants
+- Photorealistic cinematic mountain-road cover, detailed fuel stations, and illuminated roadside restaurants
 - Continuous steering, slope gravity, acceleration, fuel-consuming boost, braking, drag, off-road grip loss, body roll, suspension movement, and wheel rotation
 - Classic sedan, rally sedan, and pickup handling profiles
 - Wide four-lane road with full-width traffic distribution and chase, hood, and interactive interior camera modes

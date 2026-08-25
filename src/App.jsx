@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { createGame } from './game.js'
 
 const INITIAL_HUD = { distance: 0, fuel: 100, coins: 0, bonus: 0, speed: 0, passed: 0, popup: '' }
 const DEMO_MODE = new URLSearchParams(window.location.search).has('demo')
@@ -12,6 +11,7 @@ const RIDES = [
 function App() {
   const canvasRef = useRef(null)
   const gameRef = useRef(null)
+  const pendingRideRef = useRef(null)
   const [hud, setHud] = useState(INITIAL_HUD)
   const [phase, setPhase] = useState(DEMO_MODE ? 'playing' : 'ready')
   const [best, setBest] = useState(() => Number(localStorage.getItem('deadly-descent-best') || 0))
@@ -19,23 +19,34 @@ function App() {
   const [ride, setRide] = useState('sedan')
 
   useEffect(() => {
-    const game = createGame(canvasRef.current, {
-      onHud: setHud,
-      onCrash: (distance) => {
-        setPhase('crashed')
-        setBest((previous) => {
-          const next = Math.max(previous, distance)
-          localStorage.setItem('deadly-descent-best', String(next))
-          return next
-        })
-      },
+    let disposed = false
+    import('./game.js').then(({ createGame }) => {
+      if (disposed) return
+      const game = createGame(canvasRef.current, {
+        onHud: setHud,
+        onCrash: (distance) => {
+          setPhase('crashed')
+          setBest((previous) => {
+            const next = Math.max(previous, distance)
+            localStorage.setItem('deadly-descent-best', String(next))
+            return next
+          })
+        },
+      })
+      gameRef.current = game
+      if (DEMO_MODE) {
+        game.start('sedan')
+        game.setControl('gas', true)
+      } else if (pendingRideRef.current) {
+        game.start(pendingRideRef.current)
+        pendingRideRef.current = null
+      }
     })
-    gameRef.current = game
-    if (DEMO_MODE) {
-      game.start('sedan')
-      game.setControl('gas', true)
+    return () => {
+      disposed = true
+      gameRef.current?.destroy()
+      gameRef.current = null
     }
-    return () => game.destroy()
   }, [])
 
   useEffect(() => gameRef.current?.setMuted(muted), [muted])
@@ -43,7 +54,8 @@ function App() {
   const start = useCallback(() => {
     setHud(INITIAL_HUD)
     setPhase('playing')
-    gameRef.current?.start(ride)
+    if (gameRef.current) gameRef.current.start(ride)
+    else pendingRideRef.current = ride
   }, [ride])
 
   useEffect(() => {
@@ -69,6 +81,7 @@ function App() {
     <main className={`game-shell phase-${phase}`}>
       <canvas ref={canvasRef} aria-label="Deadly Descent 3D mountain road" />
 
+      {phase === 'ready' && <img className="cover-photo" src="/images/deadly-descent-cover.jpg" alt="" width="1680" height="945" fetchPriority="high" draggable="false" />}
       {phase === 'ready' && <div className="cover-grade" aria-hidden="true" />}
 
       <section className="hud" aria-live="polite">
@@ -95,7 +108,7 @@ function App() {
           <p className="eyebrow">A 30 KM MOUNTAIN RUN</p>
           <h1>DEADLY<br/><em>DESCENT</em></h1>
           <p className="cover-caption">NO RESET POINTS <i /> REAL-TIME 3D</p>
-          <p className="tagline">Control the landing. Thread the traffic. Survive the mountain.</p>
+          <p className="tagline">Control the speed. Thread the traffic. Survive the mountain.</p>
           <div className="ride-picker" aria-label="Choose your vehicle">
             {RIDES.map((option) => (
               <button key={option.id} className={ride === option.id ? 'selected' : ''} onClick={() => setRide(option.id)}>
