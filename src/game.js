@@ -320,7 +320,7 @@ function createRoadsideRestaurant(side) {
 
 export function createGame(canvas, callbacks) {
   const mobileDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobileDevice || window.devicePixelRatio < 2.5, powerPreference: 'high-performance' })
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -390,15 +390,17 @@ export function createGame(canvas, callbacks) {
   scene.add(leftTerrain, rightTerrain)
 
   const roadMarks = []
+  const roadMarkCount = mobileDevice ? 54 : 82
   for (const offset of [0, -ROAD_HALF / 2, ROAD_HALF / 2]) {
-    for (let i = 0; i < 82; i += 1) {
+    for (let i = 0; i < roadMarkCount; i += 1) {
       const mark = meshBox(.14, .035, 4.2, offset === 0 ? 0xe8c95c : 0xe9e5d5)
       scene.add(mark)
       roadMarks.push({ mesh: mark, s: i * 9, offset })
     }
   }
   const edgeMarks = []
-  for (let i = 0; i < 96; i += 1) {
+  const edgeMarkCount = mobileDevice ? 64 : 96
+  for (let i = 0; i < edgeMarkCount; i += 1) {
     for (const side of [-1, 1]) {
       const edge = meshBox(.16, .04, 6.1, 0xf0eee3)
       scene.add(edge)
@@ -417,7 +419,8 @@ export function createGame(canvas, callbacks) {
   }
 
   const guardrails = []
-  for (let i = 0; i < 58; i += 1) {
+  const guardrailCount = mobileDevice ? 40 : 58
+  for (let i = 0; i < guardrailCount; i += 1) {
     const side = i % 2 ? 1 : -1
     const group = new THREE.Group()
     group.add(meshBox(.14, .85, .14, 0x72787a, 0, .4, 0))
@@ -427,7 +430,8 @@ export function createGame(canvas, callbacks) {
   }
 
   const landmarks = []
-  for (let i = 0; i < 8; i += 1) {
+  const landmarkCount = mobileDevice ? 6 : 8
+  for (let i = 0; i < landmarkCount; i += 1) {
     const side = i % 2 ? 1 : -1
     const landmark = i % 3 === 0 ? createFuelStation(side) : createRoadsideRestaurant(side)
     scene.add(landmark)
@@ -436,7 +440,7 @@ export function createGame(canvas, callbacks) {
 
   const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
   const state = {
-    running: false, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
+    running: false, cover: true, coverS: 72, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
     offset: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0,
     popup: '', popupUntil: 0, time: 0, traffic: [], pickups: [], distance: 0, cameraMode: 'chase',
   }
@@ -459,11 +463,11 @@ export function createGame(canvas, callbacks) {
       if (item.s < state.progress - 25) item.s += spacing + Math.random() * spread
     }
     for (const mark of roadMarks) {
-      recycle(mark, 82 * 9)
+      recycle(mark, roadMarkCount * 9)
       placeObject(mark.mesh, mark.s, mark.offset, .035)
     }
     for (const edge of edgeMarks) {
-      recycle(edge, 48 * 7)
+      recycle(edge, edgeMarkCount * 7)
       placeObject(edge.mesh, edge.s, edge.offset, .04)
     }
     for (const item of scenery) {
@@ -471,7 +475,7 @@ export function createGame(canvas, callbacks) {
       placeObject(item.mesh, item.s, item.offset, item.mesh.type === 'Mesh' ? .5 : 0)
     }
     for (const rail of guardrails) {
-      recycle(rail, 29 * 10)
+      recycle(rail, (guardrailCount / 2) * 10)
       placeObject(rail.mesh, rail.s, rail.offset, 0)
     }
     for (const landmark of landmarks) {
@@ -487,7 +491,8 @@ export function createGame(canvas, callbacks) {
 
   function spawnTraffic() {
     clearList(state.traffic)
-    for (let i = 0; i < 11; i += 1) {
+    const trafficCount = mobileDevice ? 8 : 11
+    for (let i = 0; i < trafficCount; i += 1) {
       const type = i % 6 === 0 ? 'truck' : i % 4 === 0 ? 'pickup' : 'sedan'
       const mesh = createVehicle(type, palette[i % palette.length])
       scene.add(mesh)
@@ -538,7 +543,7 @@ export function createGame(canvas, callbacks) {
     player = createVehicle(type, color, true)
     scene.add(player)
     Object.assign(state, {
-      running: true, crashed: false, ride, progress: 20, speed: 0, offset: 0,
+      running: true, cover: false, crashed: false, ride, progress: 20, speed: 0, offset: 0,
       lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0, popup: '',
       popupUntil: 0, time: 0, distance: 0, cameraMode: 'chase',
     })
@@ -569,9 +574,19 @@ export function createGame(canvas, callbacks) {
     vehicle.passed = false
   }
 
+  function updateCover(dt) {
+    state.coverS = 72 + Math.sin(state.time * .28) * 1.2
+    const jumpHeight = 3.8 + Math.sin(state.time * .7) * .22
+    placeObject(player, state.coverS, -2.1, jumpHeight)
+    player.rotateX(-.13 + Math.sin(state.time * .65) * .035)
+    player.rotateZ(Math.sin(state.time * .5) * .035)
+    for (const wheel of player.userData.wheels) wheel.rotation.x -= dt * 7.5
+  }
+
   function update(dt) {
     state.time += dt
     refreshPools()
+    if (state.cover) updateCover(dt)
     if (!state.running || state.crashed) return
     const profile = state.ride === 'rally'
       ? { power: 17, top: 54, steer: 12 }
@@ -653,7 +668,10 @@ export function createGame(canvas, callbacks) {
   function updateCamera(dt) {
     let cameraTargetPosition
     let lookTarget
-    if (state.cameraMode === 'hood') {
+    if (state.cover) {
+      cameraTargetPosition = roadPosition(state.coverS - 11.5, 7.5, 6.6)
+      lookTarget = roadPosition(state.coverS + 2.5, -1.7, 2.6)
+    } else if (state.cameraMode === 'hood') {
       cameraTargetPosition = roadPosition(state.progress, state.offset, 1.1)
       lookTarget = roadPosition(state.progress + 15, state.offset * .3, 1)
     } else if (state.cameraMode === 'interior') {
@@ -664,14 +682,14 @@ export function createGame(canvas, callbacks) {
       cameraTargetPosition = roadPosition(backS, state.offset * .45 + 2.15, 4.8)
       lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
     }
-    const interior = state.cameraMode === 'interior'
+    const interior = !state.cover && state.cameraMode === 'interior'
     player.visible = !interior
     cockpit.visible = interior
     const steerInput = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
     steeringWheel.rotation.z += ((-steerInput * .65) - steeringWheel.rotation.z) * (1 - Math.exp(-8 * dt))
     camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-7 * dt))
     camera.lookAt(lookTarget)
-    const targetFov = controls.boost && state.running ? 68 : 62
+    const targetFov = state.cover ? 57 : controls.boost && state.running ? 68 : 62
     camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt))
     camera.updateProjectionMatrix()
   }
@@ -686,7 +704,7 @@ export function createGame(canvas, callbacks) {
   function resize() {
     const rect = canvas.getBoundingClientRect()
     const compact = rect.width < 900 || rect.height < 560
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.35 : 2))
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.2 : 2))
     renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false)
     camera.aspect = Math.max(1, rect.width) / Math.max(1, rect.height)
     camera.updateProjectionMatrix()
@@ -719,12 +737,10 @@ export function createGame(canvas, callbacks) {
   window.addEventListener('keyup', onKeyUp)
   window.addEventListener('blur', onBlur)
   resize()
-  spawnTraffic()
-  spawnPickups()
   refreshPools()
   state.progress = 20
-  placeObject(player, state.progress, 0, .08)
-  camera.position.copy(roadPosition(9, 0, 4.8))
+  updateCover(0)
+  camera.position.copy(roadPosition(state.coverS - 11.5, 7.5, 6.6))
 
   function loop(now) {
     const dt = clamp((now - previousTime) / 1000, 0, .04)

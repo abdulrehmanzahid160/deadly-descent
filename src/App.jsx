@@ -66,8 +66,10 @@ function App() {
   }, [phase, start])
 
   return (
-    <main className="game-shell">
+    <main className={`game-shell phase-${phase}`}>
       <canvas ref={canvasRef} aria-label="Deadly Descent 3D mountain road" />
+
+      {phase === 'ready' && <div className="cover-grade" aria-hidden="true" />}
 
       <section className="hud" aria-live="polite">
         <div className="score-card">
@@ -90,9 +92,10 @@ function App() {
 
       {phase === 'ready' && (
         <section className="modal intro">
-          <p className="eyebrow">MOUNTAIN ROAD CHALLENGE</p>
+          <p className="eyebrow">A 30 KM MOUNTAIN RUN</p>
           <h1>DEADLY<br/><em>DESCENT</em></h1>
-          <p className="tagline">Control the speed. Hold the line. Survive the mountain.</p>
+          <p className="cover-caption">NO RESET POINTS <i /> REAL-TIME 3D</p>
+          <p className="tagline">Control the landing. Thread the traffic. Survive the mountain.</p>
           <div className="ride-picker" aria-label="Choose your vehicle">
             {RIDES.map((option) => (
               <button key={option.id} className={ride === option.id ? 'selected' : ''} onClick={() => setRide(option.id)}>
