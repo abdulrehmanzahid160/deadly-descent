@@ -131,7 +131,7 @@ function App() {
         </section>
       )}
 
-      <section className="controls" aria-label="Driving controls">
+      <section className="controls" aria-label="Brake and accelerator controls">
         <button data-control="brake" className="pedal brake" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>
           <span>▼</span><b>BRAKE</b><small>DECELERATE</small>
         </button>
@@ -139,7 +139,7 @@ function App() {
           <span>▲</span><b>GAS</b><small>ACCELERATE</small>
         </button>
       </section>
-      <section className="lane-controls" aria-label="Steering controls">
+      <section className="lane-controls" aria-label="Left and right steering controls">
         <button data-control="steerLeft" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>←<small>STEER</small></button>
         <button data-control="steerRight" onPointerDown={handleControl} onPointerUp={handleControl} onPointerCancel={handleControl} onPointerLeave={handleControl}>→<small>STEER</small></button>
       </section>
