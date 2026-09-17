@@ -9,3 +9,6 @@ mobile-preview.png
 cover-preview.png
 cover-mobile-preview.png
 controls-final.png
+artifacts/
+test-results/
+playwright-report/

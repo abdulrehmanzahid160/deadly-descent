@@ -1,762 +1,286 @@
 import * as THREE from 'three'
-import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
-import { Sky } from 'three/examples/jsm/objects/Sky.js'
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js'
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js'
+import { createWorld } from './world'
+import { loadHeroCar, createTraffic, disposeObject, FINISHES, box } from './vehicles'
+import { ROAD_HALF, ROAD_LENGTH, START, roadPosition, placeOnRoad, roadFrame, clamp, random } from './road'
 
-const ROAD_HALF = 9.5
-const ROAD_LENGTH = 30000
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value))
-const palette = [0xd45142, 0xe1b346, 0x4a7f9c, 0xe4e1d8, 0x57745d, 0x765886]
-
-function mat(color, roughness = .76, metalness = .04) {
-  return new THREE.MeshStandardMaterial({ color, roughness, metalness })
+const gradeShader = {
+  uniforms: { tDiffuse: { value: null }, strength: { value: .19 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.); }',
+  fragmentShader: `uniform sampler2D tDiffuse; uniform float strength; varying vec2 vUv;
+    void main(){ vec3 c=texture2D(tDiffuse,vUv).rgb;
+      float vignette=smoothstep(.28,.82,length((vUv-.5)*vec2(1.,.85)));
+      c*=1.-vignette*strength; gl_FragColor=vec4(c,1.); }`,
 }
 
-function meshBox(w, h, d, color, x = 0, y = 0, z = 0) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color))
-  mesh.position.set(x, y, z)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  return mesh
-}
-
-function roundedBox(w, h, d, color, radius = .12, x = 0, y = 0, z = 0) {
-  const mesh = new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 4, Math.min(radius, h * .35)), mat(color, .46, .12))
-  mesh.position.set(x, y, z)
-  mesh.castShadow = true
-  mesh.receiveShadow = true
-  return mesh
-}
-
-function roadPoint(s, target = new THREE.Vector3()) {
-  const x = Math.sin(s * .0085) * 18 + Math.sin(s * .0021 + .8) * 30 + Math.sin(s * .021) * 3
-  const y = 24 - s * .052 + Math.sin(s * .0105 + 1.28) * 13 + Math.sin(s * .0035) * 5 + Math.sin(s * .024) * 1.3
-  return target.set(x, y, -s)
-}
-
-function roadFrame(s) {
-  const before = roadPoint(Math.max(0, s - 1))
-  const after = roadPoint(s + 1)
-  const tangent = after.sub(before).normalize()
-  const right = new THREE.Vector3().crossVectors(tangent, new THREE.Vector3(0, 1, 0)).normalize()
-  const up = new THREE.Vector3().crossVectors(right, tangent).normalize()
-  return { tangent, right, up }
-}
-
-function roadPosition(s, offset = 0, lift = 0) {
-  const point = roadPoint(s)
-  const { right, up } = roadFrame(s)
-  return point.addScaledVector(right, offset).addScaledVector(up, lift)
-}
-
-function makeRoadGeometry() {
-  const vertices = []
-  const indices = []
-  const uvs = []
-  const step = 7
-  for (let s = 0, row = 0; s <= ROAD_LENGTH; s += step, row += 1) {
-    const center = roadPoint(s)
-    const { right } = roadFrame(s)
-    const left = center.clone().addScaledVector(right, -ROAD_HALF)
-    const rightEdge = center.clone().addScaledVector(right, ROAD_HALF)
-    vertices.push(left.x, left.y, left.z, rightEdge.x, rightEdge.y, rightEdge.z)
-    uvs.push(0, s / 13, 1, s / 13)
-    if (row > 0) {
-      const a = row * 2
-      indices.push(a - 2, a - 1, a, a, a - 1, a + 1)
-    }
-  }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-  geometry.setIndex(indices)
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-  geometry.computeVertexNormals()
-  return geometry
-}
-
-function makeTerrainGeometry(side) {
-  const vertices = []
-  const indices = []
-  const uvs = []
-  const step = 12
-  const edge = side * (ROAD_HALF + .1)
-  const outer = side * 92
-  for (let s = 0, row = 0; s <= ROAD_LENGTH; s += step, row += 1) {
-    const center = roadPoint(s)
-    const { right } = roadFrame(s)
-    const roadEdge = center.clone().addScaledVector(right, edge)
-    const outerEdge = center.clone().addScaledVector(right, outer)
-    const ridge = side < 0
-      ? 11 + Math.sin(s * .011) * 8 + Math.sin(s * .003) * 14
-      : -7 + Math.sin(s * .008 + 2) * 8
-    outerEdge.y += ridge
-    vertices.push(roadEdge.x, roadEdge.y - .08, roadEdge.z, outerEdge.x, outerEdge.y, outerEdge.z)
-    uvs.push(0, s / 18, 4.5, s / 18)
-    if (row > 0) {
-      const a = row * 2
-      indices.push(a - 2, a - 1, a, a - 1, a + 1, a)
-    }
-  }
-  const geometry = new THREE.BufferGeometry()
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3))
-  geometry.setIndex(indices)
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2))
-  geometry.computeVertexNormals()
-  return geometry
-}
-
-function createWheel(x, z, radius = .42) {
-  const wheel = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, .3, 18), mat(0x15191b, .92))
-  wheel.rotation.z = Math.PI / 2
-  wheel.position.set(x, radius, z)
-  wheel.castShadow = true
-  const hub = new THREE.Mesh(new THREE.CylinderGeometry(radius * .46, radius * .46, .315, 12), mat(0xaeb5b8, .4, .4))
-  hub.rotation.z = Math.PI / 2
-  wheel.add(hub)
-  return wheel
-}
-
-function createVehicle(type = 'sedan', color = 0xe8e8e0, player = false) {
-  const group = new THREE.Group()
-  const wheels = []
-  const glass = mat(0x314a55, .24, .15)
-  const addWheels = (front, rear, radius = .43) => {
-    for (const x of [-1.04, 1.04]) {
-      for (const z of [front, rear]) {
-        const wheel = createWheel(x, z, radius)
-        group.add(wheel)
-        wheels.push(wheel)
-      }
-    }
-  }
-
-  if (type === 'truck') {
-    group.add(roundedBox(2.35, 1.55, 4.8, 0xd7d7d2, .1, 0, 1.35, .8))
-    group.add(roundedBox(2.3, 1.8, 2.1, color, .18, 0, 1.45, -2.45))
-    group.add(meshBox(1.95, .65, .08, 0x3f5963, 0, 1.8, -3.52))
-    addWheels(-2.55, 2.25, .47)
-  } else if (type === 'pickup') {
-    group.add(roundedBox(2.24, .72, 4.55, color, .16, 0, .83, 0))
-    group.add(roundedBox(2.14, 1.12, 2, color, .13, 0, 1.4, -1.02))
-    group.add(meshBox(1.93, .68, .08, 0x3b5662, 0, 1.67, -2.04))
-    group.add(meshBox(2.02, .38, 1.85, 0x2d3334, 0, 1.02, 1.16))
-    addWheels(-1.48, 1.47)
-  } else {
-    group.add(roundedBox(2.15, .68, 4, color, .16, 0, .82, 0))
-    group.add(roundedBox(1.92, 1.05, 2.2, color, .14, 0, 1.52, .02))
-    const frontGlass = meshBox(1.72, .68, .07, 0x314a55, 0, 1.7, -1.12)
-    frontGlass.material = glass
-    frontGlass.rotation.x = -.18
-    group.add(frontGlass)
-    const rearGlass = frontGlass.clone()
-    rearGlass.position.z = 1.17
-    rearGlass.rotation.x = .18
-    group.add(rearGlass)
-    for (const side of [-1, 1]) {
-      const sideGlass = meshBox(.055, .66, 1.62, 0x314a55, side * .975, 1.69, .03)
-      sideGlass.material = glass
-      sideGlass.rotation.z = side * -.035
-      group.add(sideGlass)
-      group.add(meshBox(.065, .71, .09, color, side * 1.005, 1.68, 0))
-    }
-    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, -2.04))
-    group.add(meshBox(1.8, .13, .16, 0x1d2529, 0, .48, 2.04))
-    group.add(meshBox(.58, .18, .04, 0xe9edf0, 0, .73, 2.08))
-    for (const x of [-1.08, 1.08]) {
-      const mirror = roundedBox(.34, .18, .42, color, .07, x, 1.52, -.76)
-      group.add(mirror)
-    }
-    const lowerGrille = meshBox(1.05, .22, .05, 0x172126, 0, .62, -2.08)
-    group.add(lowerGrille)
-    for (const x of [-.67, .67]) {
-      const headlamp = new THREE.Mesh(
-        new THREE.SphereGeometry(.18, 18, 12),
-        new THREE.MeshStandardMaterial({ color: 0xffe6aa, emissive: 0x5f4618, emissiveIntensity: .65, roughness: .25 }),
-      )
-      headlamp.scale.set(1.35, .78, .38)
-      headlamp.position.set(x, .84, -2.085)
-      group.add(headlamp)
-      const taillamp = new THREE.Mesh(
-        new THREE.SphereGeometry(.17, 18, 12),
-        new THREE.MeshStandardMaterial({ color: 0xb52f38, emissive: 0x5a1015, emissiveIntensity: .5, roughness: .3 }),
-      )
-      taillamp.scale.set(1.4, .72, .38)
-      taillamp.position.set(x, .84, 2.085)
-      group.add(taillamp)
-    }
-    addWheels(-1.3, 1.29)
-  }
-  if (player) {
-    const rearBadge = meshBox(.35, .06, .04, 0xc7ccce, 0, .95, 2.09)
-    group.add(rearBadge)
-  }
-  group.userData.wheels = wheels
-  return group
-}
-
-function createTree(seed) {
-  const group = new THREE.Group()
-  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(.16, .27, 3.5, 10), mat(0x58412d, .95))
-  trunk.position.y = 1.75
-  trunk.castShadow = true
-  group.add(trunk)
-  const foliageMaterial = mat(seed % 3 === 0 ? 0x2f6846 : 0x3b7650, .92)
-  const clusters = [
-    [0, 3.85, 0, 1.5], [-.82, 3.45, .1, 1.05], [.8, 3.55, -.08, 1.15], [0, 4.65, 0, 1.05],
-  ]
-  for (const [x, y, z, radius] of clusters) {
-    const crown = new THREE.Mesh(new THREE.SphereGeometry(radius + (seed % 4) * .04, 14, 10), foliageMaterial)
-    crown.position.set(x, y, z)
-    crown.scale.y = .82
-    crown.castShadow = true
-    group.add(crown)
-  }
-  return group
-}
-
-function createRock(seed) {
-  const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(1 + (seed % 5) * .27, 0), mat(0x77736b, 1))
-  rock.scale.y = .65
-  rock.castShadow = true
-  rock.receiveShadow = true
-  return rock
-}
-
-function signMaterial(label, background, foreground = '#ffffff') {
-  const canvas = document.createElement('canvas')
-  canvas.width = 768
-  canvas.height = 256
-  const context = canvas.getContext('2d')
-  context.fillStyle = background
-  context.fillRect(0, 0, canvas.width, canvas.height)
-  context.strokeStyle = 'rgba(255,255,255,.7)'
-  context.lineWidth = 18
-  context.strokeRect(12, 12, canvas.width - 24, canvas.height - 24)
-  context.fillStyle = foreground
-  context.font = '900 112px Arial, sans-serif'
-  context.textAlign = 'center'
-  context.textBaseline = 'middle'
-  context.fillText(label, canvas.width / 2, canvas.height / 2 + 5)
-  const texture = new THREE.CanvasTexture(canvas)
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.anisotropy = 8
-  return new THREE.MeshStandardMaterial({ map: texture, roughness: .5, emissive: new THREE.Color(background), emissiveIntensity: .08 })
-}
-
-function createFuelStation(side) {
-  const group = new THREE.Group()
-  const parking = roundedBox(18, .12, 22, 0x383c3d, .05, 0, .02, 0)
-  parking.receiveShadow = true
-  group.add(parking)
-  const shop = roundedBox(10, 3.6, 5.8, 0xe5e0d4, .16, side * 2.7, 1.85, -5.6)
-  group.add(shop)
-  const shopFrontX = side > 0 ? -2.32 : 2.32
-  for (let z = -7.4; z <= -4.2; z += 1.6) {
-    const window = meshBox(.06, 1.55, 1.15, 0x5d8995, shopFrontX, 1.9, z)
-    window.material = new THREE.MeshStandardMaterial({ color: 0x6e9ca8, emissive: 0x183e48, emissiveIntensity: .4, roughness: .25, metalness: .12 })
-    group.add(window)
-  }
-  const canopy = roundedBox(12.5, .42, 7.2, 0xf2f1eb, .12, -side * 2.1, 4.35, 2.3)
-  group.add(canopy)
-  group.add(meshBox(12.7, .34, 7.35, 0xc93d36, -side * 2.1, 4.13, 2.3))
-  for (const x of [-side * 5.5, side * 1.1]) {
-    for (const z of [.15, 4.45]) {
-      const column = new THREE.Mesh(new THREE.CylinderGeometry(.16, .2, 4.1, 12), mat(0xd8d9d4, .55, .18))
-      column.position.set(x, 2.05, z)
-      column.castShadow = true
-      group.add(column)
-    }
-  }
-  for (const z of [.8, 3.8]) {
-    const pump = roundedBox(.9, 1.65, .72, 0xe8e8e2, .12, -side * 2.15, .88, z)
-    group.add(pump)
-    group.add(meshBox(.48, .37, .04, 0x17272d, -side * 2.15, 1.14, z + .38))
-    const hose = new THREE.Mesh(new THREE.TorusGeometry(.48, .045, 8, 20, Math.PI * 1.4), mat(0x16191a, .9))
-    hose.position.set(-side * 2.15 + side * .6, .9, z)
-    hose.rotation.y = Math.PI / 2
-    group.add(hose)
-  }
-  const pylon = meshBox(.34, 6.4, .34, 0x4d5254, -side * 7.4, 3.2, 6.7)
-  group.add(pylon)
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(4.2, 1.45), signMaterial('FUEL', '#b52f2f'))
-  sign.position.set(-side * 7.4, 6.1, 6.9)
-  group.add(sign)
-  return group
-}
-
-function createRoadsideRestaurant(side) {
-  const group = new THREE.Group()
-  const parking = roundedBox(17, .12, 19, 0x47494a, .05, 0, .02, 0)
-  parking.receiveShadow = true
-  group.add(parking)
-  const building = roundedBox(12, 4.3, 8, 0x9f6649, .18, side * 1.8, 2.2, -2.4)
-  group.add(building)
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(7.8, 2.1, 4), mat(0x49372f, .9))
-  roof.rotation.y = Math.PI / 4
-  roof.position.set(side * 1.8, 5.25, -2.4)
-  roof.scale.z = .72
-  roof.castShadow = true
-  group.add(roof)
-  const frontX = side > 0 ? -4.24 : 4.24
-  for (let z = -4.9; z <= .1; z += 1.75) {
-    const window = meshBox(.07, 1.55, 1.25, 0xffc66e, frontX, 2.35, z)
-    window.material = new THREE.MeshStandardMaterial({ color: 0x7b9da2, emissive: 0xe49332, emissiveIntensity: .75, roughness: .22 })
-    group.add(window)
-  }
-  const awning = meshBox(.95, .16, 6.5, 0xd8b65a, frontX - side * .42, 3.62, -2.3)
-  group.add(awning)
-  const signPosts = [-2.2, 2.2]
-  for (const x of signPosts) group.add(meshBox(.16, 3.2, .16, 0x55595b, x, 1.6, 6.1))
-  const sign = new THREE.Mesh(new THREE.PlaneGeometry(5.4, 1.55), signMaterial('ROADHOUSE', '#8b3f2e', '#ffe5a2'))
-  sign.position.set(0, 3.72, 6.22)
-  group.add(sign)
-  for (const z of [-.5, 2.2]) {
-    const table = new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .1, 16), mat(0x745037, .8))
-    table.position.set(-side * 5.5, 1, z)
-    group.add(table)
-    group.add(meshBox(.12, 1, .12, 0x4a392f, -side * 5.5, .5, z))
-  }
-  return group
-}
-
-export function createGame(canvas, callbacks) {
-  const mobileDevice = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 900
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobileDevice || window.devicePixelRatio < 2.5, powerPreference: 'high-performance' })
+export async function createGame(canvas, callbacks) {
+  const mobile = matchMedia('(pointer: coarse)').matches || innerWidth < 800
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  renderer.outputColorSpace = THREE.SRGBColorSpace
   renderer.toneMapping = THREE.ACESFilmicToneMapping
-  renderer.toneMappingExposure = 1.08
-  const textureLoader = new THREE.TextureLoader()
-  const maxAnisotropy = renderer.capabilities.getMaxAnisotropy()
-  const loadTexture = (url) => {
-    const texture = textureLoader.load(url)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.anisotropy = maxAnisotropy
-    return texture
-  }
-  const asphaltTexture = loadTexture('/textures/asphalt-hd.png')
-  const groundTexture = loadTexture('/textures/mountain-ground-hd.png')
-
+  renderer.outputColorSpace = THREE.SRGBColorSpace
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x91cce4)
-  scene.fog = new THREE.FogExp2(0xa8cdd0, .0052)
-  const sky = new Sky()
-  sky.scale.setScalar(100000)
-  sky.material.uniforms.turbidity.value = 6
-  sky.material.uniforms.rayleigh.value = 2.1
-  sky.material.uniforms.mieCoefficient.value = .006
-  sky.material.uniforms.mieDirectionalG.value = .82
-  const skySun = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(72), THREE.MathUtils.degToRad(210))
-  sky.material.uniforms.sunPosition.value.copy(skySun)
-  scene.add(sky)
-  const camera = new THREE.PerspectiveCamera(62, 1, .1, 420)
-  scene.add(camera)
-  const cockpit = new THREE.Group()
-  const dashboard = roundedBox(2.6, .28, .7, 0x171d20, .08, 0, -.83, -1.45)
-  cockpit.add(dashboard)
-  const steeringWheel = new THREE.Mesh(new THREE.TorusGeometry(.28, .045, 10, 28), mat(0x111619, .75, .12))
-  steeringWheel.position.set(-.38, -.62, -1.08)
-  cockpit.add(steeringWheel)
-  cockpit.visible = false
-  camera.add(cockpit)
-  scene.add(new THREE.HemisphereLight(0xc9edff, 0x4f5944, 2.3))
-  const sun = new THREE.DirectionalLight(0xffe5b1, 3.8)
-  sun.position.set(-24, 42, 18)
-  sun.castShadow = true
-  sun.shadow.mapSize.set(mobileDevice ? 1024 : 2048, mobileDevice ? 1024 : 2048)
-  sun.shadow.camera.left = -28
-  sun.shadow.camera.right = 28
-  sun.shadow.camera.top = 28
-  sun.shadow.camera.bottom = -28
-  scene.add(sun)
-
-  const roadMaterial = new THREE.MeshStandardMaterial({
-    map: asphaltTexture, bumpMap: asphaltTexture, bumpScale: .055, color: 0xf0f0ed,
-    roughness: .9, metalness: 0, side: THREE.DoubleSide,
-  })
-  const road = new THREE.Mesh(makeRoadGeometry(), roadMaterial)
-  road.receiveShadow = true
-  scene.add(road)
-  const groundMaterial = new THREE.MeshStandardMaterial({
-    map: groundTexture, bumpMap: groundTexture, bumpScale: .12, color: 0xffffff,
-    roughness: 1, metalness: 0, side: THREE.DoubleSide,
-  })
-  const leftTerrain = new THREE.Mesh(makeTerrainGeometry(-1), groundMaterial)
-  const rightTerrain = new THREE.Mesh(makeTerrainGeometry(1), groundMaterial)
-  leftTerrain.receiveShadow = true
-  rightTerrain.receiveShadow = true
-  scene.add(leftTerrain, rightTerrain)
-
-  const roadMarks = []
-  const roadMarkCount = mobileDevice ? 54 : 82
-  for (const offset of [0, -ROAD_HALF / 2, ROAD_HALF / 2]) {
-    for (let i = 0; i < roadMarkCount; i += 1) {
-      const mark = meshBox(.14, .035, 4.2, offset === 0 ? 0xe8c95c : 0xe9e5d5)
-      scene.add(mark)
-      roadMarks.push({ mesh: mark, s: i * 9, offset })
-    }
-  }
-  const edgeMarks = []
-  const edgeMarkCount = mobileDevice ? 64 : 96
-  for (let i = 0; i < edgeMarkCount; i += 1) {
-    for (const side of [-1, 1]) {
-      const edge = meshBox(.16, .04, 6.1, 0xf0eee3)
-      scene.add(edge)
-      edgeMarks.push({ mesh: edge, s: i * 7, offset: side * (ROAD_HALF - .18) })
-    }
-  }
-
-  const scenery = []
-  const sceneryCount = mobileDevice ? 52 : 76
-  for (let i = 0; i < sceneryCount; i += 1) {
-    const side = i % 2 ? 1 : -1
-    const object = i % 5 === 0 ? createRock(i) : createTree(i)
-    const item = { mesh: object, s: 14 + i * 8.5, offset: side * (ROAD_HALF + 3 + (i % 6) * 2.2) }
-    scene.add(object)
-    scenery.push(item)
-  }
-
-  const guardrails = []
-  const guardrailCount = mobileDevice ? 40 : 58
-  for (let i = 0; i < guardrailCount; i += 1) {
-    const side = i % 2 ? 1 : -1
-    const group = new THREE.Group()
-    group.add(meshBox(.14, .85, .14, 0x72787a, 0, .4, 0))
-    group.add(meshBox(.16, .24, 5.6, 0xb9bdba, 0, .77, 0))
-    scene.add(group)
-    guardrails.push({ mesh: group, s: 30 + Math.floor(i / 2) * 10, offset: side * (ROAD_HALF + .55) })
-  }
-
-  const landmarks = []
-  const landmarkCount = mobileDevice ? 6 : 8
-  for (let i = 0; i < landmarkCount; i += 1) {
-    const side = i % 2 ? 1 : -1
-    const landmark = i % 3 === 0 ? createFuelStation(side) : createRoadsideRestaurant(side)
-    scene.add(landmark)
-    landmarks.push({ mesh: landmark, s: 100 + i * 280, offset: side * (ROAD_HALF + 14) })
-  }
-
-  const controls = { gas: false, boost: false, brake: false, steerLeft: false, steerRight: false }
-  const state = {
-    running: false, cover: true, crashed: false, muted: false, ride: 'sedan', progress: 20, speed: 0,
-    offset: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0,
-    popup: '', popupUntil: 0, time: 0, traffic: [], pickups: [], distance: 0, cameraMode: 'chase',
-  }
-  let player = createVehicle('sedan', 0xe8e8e0, true)
+  const camera = new THREE.PerspectiveCamera(52, 1, .08, 6000)
+  const world = createWorld(scene, renderer, mobile)
+  const renderTarget = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType, samples: mobile ? 0 : 2 })
+  const composer = new EffectComposer(renderer, renderTarget)
+  composer.addPass(new RenderPass(scene, camera))
+  const bloom = new UnrealBloomPass(new THREE.Vector2(512, 512), .08, .4, 2.2)
+  composer.addPass(bloom)
+  composer.addPass(new OutputPass())
+  composer.addPass(new ShaderPass(gradeShader))
+  let player
+  try { player = await loadHeroCar() }
+  catch { player = createTraffic('sedan', FINISHES[0].color); callbacks.onNotice?.('Detailed car unavailable. Backup vehicle loaded.') }
   scene.add(player)
-  let previousTime = performance.now()
-  let animationFrame = 0
-  let audio = null
-
-  function placeObject(object, s, offset, lift = 0) {
-    const point = roadPosition(s, offset, lift)
-    const { tangent, right, up } = roadFrame(s)
-    object.position.copy(point)
-    const basis = new THREE.Matrix4().makeBasis(right, up, tangent.clone().negate())
-    object.quaternion.setFromRotationMatrix(basis)
+  const controls = { gas: false, brake: false, boost: false, steerLeft: false, steerRight: false }
+  const state = {
+    phase: 'ready', progress: START, offset: 1.8, speed: 0, lateralSpeed: 0,
+    fuel: 100, coins: 0, passed: 0, bonus: 0, time: 0, cameraMode: 'chase',
+    quality: mobile ? 'medium' : 'high', condition: 'alpine', ride: 'touring',
+    popup: '', popupUntil: 0, muted: false, fps: 60, reason: '',
   }
+  let disposed = false, frameId, lastTime = performance.now(), hudTime = 0, frameTime = 0, frames = 0
+  const rng = random(601)
+  const lanes = [-5.5, -1.85, 1.85, 5.5]
+  const traffic = Array.from({ length: mobile ? 9 : 13 }, (_, i) => {
+    const mesh = createTraffic(i % 5 === 0 ? 'truck' : i % 4 === 0 ? 'pickup' : 'sedan', ['#3d5261', '#c2c7c6', '#34383b', '#a58457', '#657469'][i % 5])
+    scene.add(mesh)
+    return { mesh, s: START + 110 + i * 80, offset: lanes[i % 4], speed: 13 + rng() * 12, passed: false }
+  })
+  const pickups = Array.from({ length: 6 }, (_, i) => {
+    const mesh = new THREE.Group()
+    const metal = new THREE.MeshStandardMaterial({ color: 0x91a283, roughness: .5, metalness: .5 })
+    mesh.add(box(.4, .57, .23, metal, 0, .3, 0, .035), box(.19, .065, .09, metal, 0, .62, 0, .02))
+    const cross = new THREE.MeshStandardMaterial({ color: 0xd8d4a4, emissive: 0xb8a97d, emissiveIntensity: .3 })
+    mesh.add(box(.24, .055, .015, cross, 0, .3, .125), box(.055, .25, .015, cross, 0, .3, .125))
+    scene.add(mesh)
+    return { mesh, s: START + 340 + i * 450, offset: lanes[(i + 2) % 4] }
+  })
+  const skidCount = 220
+  const skids = new THREE.InstancedMesh(new THREE.PlaneGeometry(.23, 1.7).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0x101519, transparent: true, opacity: .2, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1 }), skidCount)
+  skids.frustumCulled = false
+  const stamp = new THREE.Object3D()
+  stamp.scale.setScalar(0); stamp.updateMatrix()
+  for (let i = 0; i < skidCount; i++) skids.setMatrixAt(i, stamp.matrix)
+  scene.add(skids)
+  let skidIndex = 0, lastSkid = 0
+  const shadowCanvas = document.createElement('canvas'); shadowCanvas.width = shadowCanvas.height = 128
+  const ctx = shadowCanvas.getContext('2d')
+  const gradient = ctx.createRadialGradient(64, 64, 15, 64, 64, 64)
+  gradient.addColorStop(0, 'rgba(0,0,0,.65)'); gradient.addColorStop(1, 'rgba(0,0,0,0)')
+  ctx.fillStyle = gradient; ctx.fillRect(0, 0, 128, 128)
+  const contact = new THREE.Mesh(new THREE.PlaneGeometry(3.1, 5.4).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(shadowCanvas), transparent: true, depthWrite: false }))
+  scene.add(contact)
 
-  function refreshPools() {
-    const recycle = (item, spacing, spread = 0) => {
-      if (item.s < state.progress - 25) item.s += spacing + Math.random() * spread
-    }
-    for (const mark of roadMarks) {
-      recycle(mark, roadMarkCount * 9)
-      placeObject(mark.mesh, mark.s, mark.offset, .035)
-    }
-    for (const edge of edgeMarks) {
-      recycle(edge, edgeMarkCount * 7)
-      placeObject(edge.mesh, edge.s, edge.offset, .04)
-    }
-    for (const item of scenery) {
-      recycle(item, scenery.length * 8.5, 30)
-      placeObject(item.mesh, item.s, item.offset, item.mesh.type === 'Mesh' ? .5 : 0)
-    }
-    for (const rail of guardrails) {
-      recycle(rail, (guardrailCount / 2) * 10)
-      placeObject(rail.mesh, rail.s, rail.offset, 0)
-    }
-    for (const landmark of landmarks) {
-      recycle(landmark, landmarks.length * 280, 120)
-      placeObject(landmark.mesh, landmark.s, landmark.offset, .03)
-    }
-  }
-
-  function clearList(list) {
-    for (const item of list) scene.remove(item.mesh)
-    list.length = 0
-  }
-
-  function spawnTraffic() {
-    clearList(state.traffic)
-    const trafficCount = mobileDevice ? 8 : 11
-    for (let i = 0; i < trafficCount; i += 1) {
-      const type = i % 6 === 0 ? 'truck' : i % 4 === 0 ? 'pickup' : 'sedan'
-      const mesh = createVehicle(type, palette[i % palette.length])
-      scene.add(mesh)
-      const trafficLanes = [-ROAD_HALF * .74, -ROAD_HALF * .25, ROAD_HALF * .25, ROAD_HALF * .74]
-      state.traffic.push({ mesh, type, s: 90 + i * 52 + Math.random() * 25, offset: trafficLanes[Math.floor(Math.random() * trafficLanes.length)], speed: 10 + Math.random() * 16, passed: false })
-    }
-  }
-
-  function spawnPickups() {
-    clearList(state.pickups)
-    for (let i = 0; i < 7; i += 1) {
-      const fuel = i % 4 === 3
-      const mesh = fuel
-        ? meshBox(.85, 1.05, .45, 0xd54d42)
-        : new THREE.Mesh(new THREE.CylinderGeometry(.45, .45, .14, 20), mat(0xf2c54e, .38, .25))
-      if (!fuel) mesh.rotation.z = Math.PI / 2
-      mesh.castShadow = true
-      scene.add(mesh)
-      state.pickups.push({ mesh, fuel, s: 130 + i * 105, offset: (Math.random() - .5) * ROAD_HALF * 1.6 })
-    }
-  }
-
-  function showPopup(text) {
-    state.popup = text
-    state.popupUntil = state.time + 1.25
-  }
-
-  function beep(frequency, duration, gain = .018) {
+  let audio, oscillator, harmonic, volume, engineFilter
+  function enableAudio() {
     if (state.muted) return
     try {
-      audio ||= new AudioContext()
-      const oscillator = audio.createOscillator()
-      const volume = audio.createGain()
-      oscillator.type = 'triangle'
-      oscillator.frequency.value = frequency
-      volume.gain.setValueAtTime(gain, audio.currentTime)
-      volume.gain.exponentialRampToValueAtTime(.0001, audio.currentTime + duration)
-      oscillator.connect(volume).connect(audio.destination)
-      oscillator.start()
-      oscillator.stop(audio.currentTime + duration)
+      if (!audio) {
+        audio = new AudioContext()
+        volume = audio.createGain(); volume.gain.value = 0
+        engineFilter = audio.createBiquadFilter(); engineFilter.type = 'lowpass'; engineFilter.frequency.value = 280
+        oscillator = audio.createOscillator(); oscillator.type = 'sawtooth'
+        harmonic = audio.createOscillator(); harmonic.type = 'triangle'
+        oscillator.connect(engineFilter); harmonic.connect(engineFilter); engineFilter.connect(volume).connect(audio.destination)
+        oscillator.start(); harmonic.start()
+      }
+      if (audio.state === 'suspended') audio.resume().catch(() => {})
     } catch { /* Audio is optional. */ }
   }
-
-  function reset(ride = 'sedan') {
-    scene.remove(player)
-    const type = ride === 'pickup' ? 'pickup' : 'sedan'
-    const color = ride === 'rally' ? 0xd74636 : ride === 'pickup' ? 0xd66a3d : 0xe8e8e0
-    player = createVehicle(type, color, true)
-    scene.add(player)
-    Object.assign(state, {
-      running: true, cover: false, crashed: false, ride, progress: 20, speed: 0, offset: 0,
-      lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0, popup: '',
-      popupUntil: 0, time: 0, distance: 0, cameraMode: 'chase',
-    })
-    Object.keys(controls).forEach((key) => { controls[key] = false })
-    spawnTraffic()
-    spawnPickups()
-    refreshPools()
-    beep(180, .1, .025)
+  function updateAudio() {
+    if (!audio) return
+    const active = state.phase === 'playing' && !state.muted
+    const rpm = 42 + state.speed * 2.5 + (controls.gas ? 13 : 0)
+    oscillator.frequency.setTargetAtTime(rpm, audio.currentTime, .09)
+    harmonic.frequency.setTargetAtTime(rpm * .51, audio.currentTime, .1)
+    engineFilter.frequency.setTargetAtTime(180 + state.speed * 12, audio.currentTime, .2)
+    volume.gain.setTargetAtTime(active ? (controls.gas ? .028 : .012) : 0, audio.currentTime, .08)
   }
-
-  function crash(message = 'OFF ROAD') {
-    if (state.crashed) return
-    state.crashed = true
-    state.running = false
-    Object.keys(controls).forEach((key) => { controls[key] = false })
-    player.rotation.z += state.offset > 0 ? -.7 : .7
-    showPopup(message)
-    beep(80, .5, .045)
-    callbacks.onCrash(state.distance)
+  function clearControls() { Object.keys(controls).forEach(key => { controls[key] = false }) }
+  function showPopup(message) { state.popup = message; state.popupUntil = state.time + 1.8 }
+  function reportHud() {
+    const speed = state.speed * 3.6
+    callbacks.onHud({ distance: Math.max(0, state.progress - START) / 1000, fuel: state.fuel, speed, passed: state.passed, bonus: state.bonus, popup: state.popup, gear: speed < 2 ? 'N' : Math.min(7, Math.floor(speed / 38) + 1), rpm: speed < 2 ? .1 : .3 + (speed % 38) / 54, camera: state.cameraMode, fps: state.fps, quality: state.quality, reason: state.reason })
   }
-
-  function recycleTraffic(vehicle) {
-    const farthest = Math.max(state.progress + 250, ...state.traffic.map((item) => item.s))
-    vehicle.s = farthest + 55 + Math.random() * 90
-    const trafficLanes = [-ROAD_HALF * .74, -ROAD_HALF * .25, ROAD_HALF * .25, ROAD_HALF * .74]
-    vehicle.offset = trafficLanes[Math.floor(Math.random() * trafficLanes.length)]
-    vehicle.speed = 9 + Math.random() * 19
-    vehicle.passed = false
+  function changePhase(phase) { state.phase = phase; clearControls(); callbacks.onPhase(phase); updateAudio(); reportHud() }
+  function endRun(reason) { if (state.phase !== 'playing') return; state.reason = reason; changePhase(reason === 'DESCENT COMPLETE' ? 'finished' : 'crashed') }
+  function start(ride = 'touring') {
+    Object.assign(state, { progress: START, offset: 1.85, speed: 0, lateralSpeed: 0, fuel: 100, coins: 0, passed: 0, bonus: 0, time: 0, popup: '', reason: '', cameraMode: 'chase', ride })
+    traffic.forEach((item, i) => { item.s = START + 110 + i * 80; item.offset = lanes[i % 4]; item.passed = false })
+    pickups.forEach((item, i) => { item.s = START + 340 + i * 450 })
+    stamp.scale.setScalar(0); stamp.updateMatrix()
+    for (let i = 0; i < skidCount; i++) skids.setMatrixAt(i, stamp.matrix)
+    skids.instanceMatrix.needsUpdate = true
+    lastSkid = 0; skidIndex = 0
+    changePhase('playing'); enableAudio()
+    placeOnRoad(player, state.progress, state.offset, .025)
+    camera.position.copy(roadPosition(state.progress - 8.5, state.offset, 3.15))
   }
-
+  function pause() {
+    if (state.phase === 'playing') changePhase('paused')
+    else if (state.phase === 'paused') { changePhase('playing'); enableAudio() }
+  }
+  function cycleCamera() {
+    const modes = ['chase', 'hood', 'cockpit']
+    state.cameraMode = modes[(modes.indexOf(state.cameraMode) + 1) % 3]
+    reportHud()
+  }
+  function setQuality(quality) {
+    if (!['low', 'medium', 'high'].includes(quality)) return
+    state.quality = quality; world.setQuality(quality); bloom.enabled = quality === 'high'
+    resize(); reportHud()
+  }
+  function resize() {
+    const width = Math.max(1, canvas.clientWidth), height = Math.max(1, canvas.clientHeight)
+    const ratio = Math.min(devicePixelRatio || 1, state.quality === 'low' ? .9 : state.quality === 'medium' ? 1.25 : 1.75)
+    renderer.setPixelRatio(ratio); renderer.setSize(width, height, false)
+    composer.setPixelRatio(ratio); composer.setSize(width, height)
+    camera.aspect = width / height; camera.updateProjectionMatrix()
+  }
   function update(dt) {
     state.time += dt
-    if (!state.running || state.crashed) return
-    refreshPools()
-    const profile = state.ride === 'rally'
-      ? { power: 17, top: 54, steer: 12 }
-      : state.ride === 'pickup'
-        ? { power: 12.5, top: 43, steer: 8.2 }
-        : { power: 14.5, top: 48, steer: 10 }
-    const frame = roadFrame(state.progress)
-    const downhillPull = clamp(-frame.tangent.y * 30, -3, 7)
-    const offroad = Math.abs(state.offset) > ROAD_HALF - .55
+    if (state.phase !== 'playing') return
+    const previous = state.progress, sport = state.ride === 'sport'
+    const power = sport ? 18.5 : 15, topSpeed = sport ? 65 : 54
+    const offroad = Math.abs(state.offset) > ROAD_HALF - .35
     const boosting = controls.boost && state.fuel > 0
-    const throttle = controls.gas && state.fuel > 0 ? profile.power : 0
-    const boostPower = boosting ? 24 : 0
-    const braking = controls.brake ? 27 : 0
-    const drag = 1.15 + state.speed * .025 + (offroad ? 13 : 0)
-    state.speed = clamp(state.speed + (throttle + boostPower + downhillPull - braking - drag) * dt, 0, profile.top + (boosting ? 18 : 0))
+    const gravity = clamp(-roadFrame(state.progress).tangent.y * 25, -3, 5)
+    const acceleration = (controls.gas && state.fuel > 0 ? power : 0) + (boosting ? 22 : 0)
+    const drag = 1.3 + state.speed * .027 + (offroad ? 10 : 0)
+    state.speed = clamp(state.speed + (acceleration + gravity - drag - (controls.brake ? 30 : 0)) * dt, 0, topSpeed + (boosting ? 13 : 0))
     state.progress += state.speed * dt
-    state.distance = (state.progress - 20) / 1000
-    state.fuel = Math.max(0, state.fuel - dt * (.1 + (controls.gas ? .62 : 0) + (boosting ? 1.65 : 0)))
-
-    const steer = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
-    const steeringForce = steer * profile.steer * (.3 + state.speed / profile.top)
-    state.lateralSpeed += steeringForce * dt
-    state.lateralSpeed *= Math.exp(-(offroad ? 2.1 : 4.2) * dt)
-    state.offset += state.lateralSpeed * dt * 2.5
-    state.offset = clamp(state.offset, -15.5, 15.5)
-
-    const suspension = Math.sin(state.time * (5 + state.speed * .3)) * Math.min(.07, state.speed * .0015)
-    placeObject(player, state.progress, state.offset, .08 + suspension)
-    player.rotateZ(-state.lateralSpeed * .035)
-    player.rotateX((controls.brake ? -.04 : controls.gas || boosting ? .025 : 0) + (offroad ? Math.sin(state.time * 22) * .025 : 0))
-    for (const wheel of player.userData.wheels) wheel.rotation.x -= state.speed * dt / .43
-
-    for (const vehicle of state.traffic) {
-      vehicle.s += vehicle.speed * dt
-      placeObject(vehicle.mesh, vehicle.s, vehicle.offset, .06)
-      for (const wheel of vehicle.mesh.userData.wheels) wheel.rotation.x -= vehicle.speed * dt / .43
-      const gap = vehicle.s - state.progress
-      if (!vehicle.passed && gap < -3) {
-        vehicle.passed = true
-        state.passed += 1
-        if (Math.abs(vehicle.offset - state.offset) < 2.6) {
-          state.bonus += 100
-          showPopup('CLOSE PASS  +100')
-          beep(650, .08, .018)
-        }
+    state.fuel = Math.max(0, state.fuel - dt * (.08 + (controls.gas ? .2 : 0) + (boosting ? .95 : 0)))
+    const steer = Number(controls.steerRight) - Number(controls.steerLeft)
+    state.lateralSpeed += steer * (sport ? 12 : 9) * Math.min(1.4, state.speed / 25) * dt
+    state.lateralSpeed *= Math.exp(-(offroad ? 2.5 : 4.5) * dt)
+    state.offset += state.lateralSpeed * dt * 2.1
+    if (Math.abs(state.offset) > ROAD_HALF + .15) endRun('GUARDRAIL IMPACT')
+    if (state.fuel <= 0 && state.speed < .25) endRun('OUT OF FUEL')
+    if (state.progress >= START + ROAD_LENGTH) endRun('DESCENT COMPLETE')
+    if (controls.brake && state.speed > 21 && state.progress - lastSkid > 1) {
+      stamp.scale.setScalar(1)
+      for (const side of [-.78, .78]) {
+        placeOnRoad(stamp, state.progress - 1.3, state.offset + side, .028); stamp.updateMatrix()
+        skids.setMatrixAt(skidIndex++ % skidCount, stamp.matrix)
       }
-      if (Math.abs(gap) < 3.7 && Math.abs(vehicle.offset - state.offset) < 1.8) crash('COLLISION')
-      if (gap < -55) recycleTraffic(vehicle)
+      skids.instanceMatrix.needsUpdate = true; lastSkid = state.progress
     }
-
-    for (const pickup of state.pickups) {
-      placeObject(pickup.mesh, pickup.s, pickup.offset, pickup.fuel ? .7 : .9)
-      pickup.mesh.rotateY(dt * 2)
-      const gap = pickup.s - state.progress
-      if (Math.abs(gap) < 2.2 && Math.abs(pickup.offset - state.offset) < 1.45) {
-        if (pickup.fuel) {
-          state.fuel = Math.min(100, state.fuel + 36)
-          showPopup('FUEL REFILLED')
-        } else {
-          state.coins += 1
-          state.bonus += 50
-          showPopup('COIN  +50')
-        }
-        pickup.s += 780
-        pickup.offset = (Math.random() - .5) * ROAD_HALF * 1.6
-        beep(pickup.fuel ? 330 : 820, .1, .02)
-      } else if (gap < -30) {
-        pickup.s += 780
-        pickup.offset = (Math.random() - .5) * ROAD_HALF * 1.6
+    for (const item of traffic) {
+      const previousGap = item.s - previous
+      item.s += item.speed * dt
+      const gap = item.s - state.progress, crossing = previousGap * gap <= 0
+      if ((Math.abs(gap) < 4.3 || crossing) && Math.abs(item.offset - state.offset) < 1.74) endRun('TRAFFIC COLLISION')
+      if (!item.passed && gap < -4.5) {
+        item.passed = true; state.passed++
+        if (Math.abs(item.offset - state.offset) < 2.9) { state.bonus += 100; showPopup('CLOSE PASS  +100') }
       }
+      if (gap < -90) {
+        item.s = Math.max(state.progress + 500, ...traffic.map(car => car.s)) + 55 + rng() * 60
+        item.offset = lanes[Math.floor(rng() * 4)]; item.passed = false
+      }
+      for (const wheel of item.mesh.userData.wheels) wheel.rotation.x -= item.speed * dt / .37
     }
-
-    if (Math.abs(state.offset) > 14.5 || (Math.abs(state.offset) > 12.5 && state.speed > 25)) crash('LOST CONTROL')
-    if (state.fuel <= 0 && state.speed < .25) crash('OUT OF FUEL')
-    if (state.progress > ROAD_LENGTH - 400) crash('SUMMIT COMPLETE')
+    for (const item of pickups) {
+      const gap = item.s - state.progress
+      if (Math.abs(gap) < 2.8 && Math.abs(item.offset - state.offset) < 1.3) {
+        state.fuel = Math.min(100, state.fuel + 30); item.s += 2700; showPopup('FUEL  +30%')
+      } else if (gap < -50) item.s += 2700
+    }
+    for (const wheel of player.userData.wheels) wheel.rotation.x -= state.speed * dt / player.userData.radius
     if (state.popup && state.time > state.popupUntil) state.popup = ''
   }
 
-  function updateCamera(dt) {
-    let cameraTargetPosition
-    let lookTarget
-    if (state.cameraMode === 'hood') {
-      cameraTargetPosition = roadPosition(state.progress, state.offset, 1.1)
-      lookTarget = roadPosition(state.progress + 15, state.offset * .3, 1)
-    } else if (state.cameraMode === 'interior') {
-      cameraTargetPosition = roadPosition(state.progress, state.offset - .3, 1.55)
-      lookTarget = roadPosition(state.progress + 20, state.offset * .15, 1.35)
+  const look = new THREE.Vector3()
+  function render(dt) {
+    const cover = state.phase === 'ready'
+    world.update(state.progress)
+    placeOnRoad(player, state.progress, state.offset, .022 + (state.speed > 1 ? Math.sin(state.time * 13) * .008 : 0))
+    player.rotateZ(-state.lateralSpeed * .021); player.rotateY(-state.lateralSpeed * .014)
+    player.rotateX(controls.brake && state.speed > 1 ? -.015 : controls.gas ? .008 : 0)
+    player.userData.rearLights.emissiveIntensity = controls.brake ? 5 : 1.2
+    if (player.userData.steeringWheel) player.userData.steeringWheel.rotation.z = -state.lateralSpeed * .28
+    placeOnRoad(contact, state.progress, state.offset, .018)
+    for (const item of traffic) placeOnRoad(item.mesh, item.s, item.offset, .018)
+    for (const item of pickups) {
+      placeOnRoad(item.mesh, item.s, item.offset, .14 + Math.sin(state.time * 2 + item.s) * .1)
+      item.mesh.rotateY(state.time * .7)
+    }
+    let position, target, fov
+    if (cover) {
+      const orbit = Math.sin(state.time * .09) * .65
+      position = roadPosition(state.progress - 5.8 + orbit, state.offset - 5.6, 2.2)
+      target = roadPosition(state.progress + .7, state.offset - (camera.aspect > 1.2 ? 1.7 : 0), .85)
+      fov = camera.aspect < 1 ? 68 : 43
+    } else if (state.cameraMode === 'hood') {
+      position = roadPosition(state.progress + 1.1, state.offset, .94)
+      target = roadPosition(state.progress + 32, state.offset * .6, .85); fov = 66
+    } else if (state.cameraMode === 'cockpit') {
+      position = roadPosition(state.progress + .28, state.offset - .33, 1.04)
+      target = roadPosition(state.progress + 35, state.offset - .33, .95); fov = 73
     } else {
-      const backS = Math.max(0, state.progress - 10.5)
-      cameraTargetPosition = roadPosition(backS, state.offset * .45 + 2.15, 4.8)
-      lookTarget = roadPosition(state.progress + 20, state.offset * .2, 1.25)
+      position = roadPosition(state.progress - 8.4 - state.speed * .015, state.offset * .85 + .25, 3.1)
+      target = roadPosition(state.progress + 13, state.offset * .7, .6)
+      fov = 53 + state.speed * .06 + (controls.boost ? 5 : 0)
     }
-    const interior = state.cameraMode === 'interior'
-    player.visible = !interior
-    cockpit.visible = interior
-    const steerInput = (controls.steerRight ? 1 : 0) - (controls.steerLeft ? 1 : 0)
-    steeringWheel.rotation.z += ((-steerInput * .65) - steeringWheel.rotation.z) * (1 - Math.exp(-8 * dt))
-    camera.position.lerp(cameraTargetPosition, 1 - Math.exp(-7 * dt))
-    camera.lookAt(lookTarget)
-    const targetFov = controls.boost && state.running ? 68 : 62
-    camera.fov += (targetFov - camera.fov) * (1 - Math.exp(-5 * dt))
-    camera.updateProjectionMatrix()
+    const damping = cover ? 1 - Math.exp(-2 * dt) : state.cameraMode !== 'chase' ? 1 : 1 - Math.exp(-9 * dt)
+    camera.position.lerp(position, damping); look.lerp(target, cover ? 1 - Math.exp(-3 * dt) : 1)
+    camera.lookAt(look); camera.fov += (fov - camera.fov) * Math.min(1, dt * 5); camera.updateProjectionMatrix()
+    if (state.quality === 'low') renderer.render(scene, camera)
+    else composer.render()
   }
-
-  function reportHud() {
-    callbacks.onHud({
-      distance: Math.max(0, state.distance), fuel: state.fuel, coins: state.coins,
-      bonus: state.bonus, passed: state.passed, speed: state.speed * 3.6, popup: state.popup,
-    })
-  }
-
-  function resize() {
-    const rect = canvas.getBoundingClientRect()
-    const compact = rect.width < 900 || rect.height < 560
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, compact ? 1.2 : 2))
-    renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false)
-    camera.aspect = Math.max(1, rect.width) / Math.max(1, rect.height)
-    camera.updateProjectionMatrix()
-  }
-
   function key(event, down) {
-    if (event.code === 'KeyC' && down && !event.repeat) {
-      event.preventDefault()
-      const modes = ['chase', 'hood', 'interior']
-      state.cameraMode = modes[(modes.indexOf(state.cameraMode) + 1) % modes.length]
-      showPopup(`CAMERA: ${state.cameraMode.toUpperCase()}`)
-      return
-    }
-    const mapping = {
-      ArrowUp: 'gas', KeyW: 'gas', Space: 'boost', ArrowDown: 'brake', KeyS: 'brake',
-      ArrowLeft: 'steerLeft', KeyA: 'steerLeft', ArrowRight: 'steerRight', KeyD: 'steerRight',
-    }
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName)) return
+    if (down && !event.repeat && event.code === 'KeyC') { cycleCamera(); return }
+    if (down && !event.repeat && ['Escape', 'KeyP'].includes(event.code)) { pause(); return }
+    const mapping = { ArrowUp: 'gas', KeyW: 'gas', ArrowDown: 'brake', KeyS: 'brake', ArrowLeft: 'steerLeft', KeyA: 'steerLeft', ArrowRight: 'steerRight', KeyD: 'steerRight', Space: 'boost' }
     const control = mapping[event.code]
     if (control) {
       event.preventDefault()
-      controls[control] = down
+      if (state.phase === 'playing') { controls[control] = down; if (down) enableAudio() }
     }
   }
-
-  const onKeyDown = (event) => key(event, true)
-  const onKeyUp = (event) => key(event, false)
-  const onBlur = () => Object.keys(controls).forEach((key) => { controls[key] = false })
-  window.addEventListener('resize', resize)
-  window.addEventListener('keydown', onKeyDown)
-  window.addEventListener('keyup', onKeyUp)
-  window.addEventListener('blur', onBlur)
-  resize()
-  refreshPools()
-  state.progress = 20
-  placeObject(player, state.progress, 0, .08)
-  camera.position.copy(roadPosition(9, 0, 4.8))
-
+  const keyDown = event => key(event, true), keyUp = event => key(event, false)
+  const blur = () => { clearControls(); if (state.phase === 'playing') changePhase('paused') }
+  const visibility = () => { if (document.hidden) blur() }
+  const contextLost = event => { event.preventDefault(); blur(); callbacks.onNotice?.('Graphics connection lost. Reload to restore the game.') }
+  window.addEventListener('keydown', keyDown); window.addEventListener('keyup', keyUp)
+  window.addEventListener('resize', resize); window.addEventListener('blur', blur)
+  document.addEventListener('visibilitychange', visibility); canvas.addEventListener('webglcontextlost', contextLost)
+  setQuality(state.quality)
+  camera.position.copy(roadPosition(START - 5.8, state.offset - 5.6, 2.2))
+  look.copy(roadPosition(START, state.offset, .85))
   function loop(now) {
-    const dt = clamp((now - previousTime) / 1000, 0, .04)
-    previousTime = now
-    if (!state.cover) {
-      update(dt)
-      updateCamera(dt)
-      renderer.render(scene, camera)
-      if (Math.floor(now / 100) !== Math.floor((now - dt * 1000) / 100)) reportHud()
-    }
-    animationFrame = requestAnimationFrame(loop)
+    if (disposed) return
+    const elapsed = Math.max(0, (now - lastTime) / 1000), dt = Math.min(elapsed, .05)
+    lastTime = now; frameTime += elapsed; frames++
+    if (frameTime >= 1) { state.fps = Math.round(frames / frameTime); frameTime = 0; frames = 0 }
+    update(dt); render(dt); updateAudio(); hudTime += dt
+    if (hudTime > .1) { reportHud(); hudTime = 0 }
+    frameId = requestAnimationFrame(loop)
   }
-  animationFrame = requestAnimationFrame(loop)
-
+  frameId = requestAnimationFrame(loop)
   return {
-    start: reset,
-    setControl(name, down) {
-      if (name in controls) controls[name] = down
-      if (down && audio?.state === 'suspended') audio.resume()
-    },
-    setMuted(value) { state.muted = value },
+    start, pause, cycleCamera, setQuality,
+    setControl(name, pressed) { if (name in controls && state.phase === 'playing') { controls[name] = pressed; if (pressed) enableAudio() } },
+    setMuted(muted) { state.muted = muted; if (!muted && state.phase === 'playing') enableAudio(); updateAudio() },
+    setPaint(color) { player.userData.paint.color.set(color) },
+    setCondition(condition) { if (['alpine', 'golden'].includes(condition)) { state.condition = condition; world.setCondition(condition) } },
+    menu() { state.progress = START; state.offset = 1.85; state.speed = 0; state.lateralSpeed = 0; changePhase('ready') },
+    snapshot() { return { ...state, controls: { ...controls }, detailedCar: !!player.userData.detailed, render: { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles } } },
     destroy() {
-      cancelAnimationFrame(animationFrame)
-      window.removeEventListener('resize', resize)
-      window.removeEventListener('keydown', onKeyDown)
-      window.removeEventListener('keyup', onKeyUp)
-      window.removeEventListener('blur', onBlur)
-      renderer.dispose()
-      audio?.close()
+      disposed = true; cancelAnimationFrame(frameId)
+      window.removeEventListener('keydown', keyDown); window.removeEventListener('keyup', keyUp)
+      window.removeEventListener('resize', resize); window.removeEventListener('blur', blur)
+      document.removeEventListener('visibilitychange', visibility); canvas.removeEventListener('webglcontextlost', contextLost)
+      world.destroy(); disposeObject(scene)
+      composer.passes.forEach(pass => pass.dispose?.()); composer.dispose(); renderer.dispose(); audio?.close().catch(() => {})
     },
   }
 }

@@ -1,5 +1,5 @@
-const CACHE = 'deadly-descent-v3'
-const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/images/deadly-descent-cover.jpg']
+const CACHE = 'deadly-descent-alpine-v4'
+const SHELL = ['/', '/index.html', '/manifest.webmanifest', '/icons/icon.svg', '/credits.txt']
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(SHELL)))
@@ -12,14 +12,16 @@ self.addEventListener('activate', (event) => {
 })
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return
+  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        const copy = response.clone()
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy))
+        if (response.ok) {
+          const copy = response.clone()
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {}))
+        }
         return response
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/index.html'))),
+      .catch(async () => (await caches.match(event.request)) || (event.request.mode === 'navigate' ? caches.match('/index.html') : Response.error())),
   )
 })

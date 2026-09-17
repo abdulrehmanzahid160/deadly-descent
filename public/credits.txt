@@ -1,0 +1,18 @@
+Deadly Descent — Alpine Collection
+
+Ferrari 458 Italia model: vicent091036
+Original model: https://sketchfab.com/models/57bf6cc56931426e87494f554df1dab6
+Distribution source: https://github.com/mrdoob/three.js/blob/r185/examples/models/gltf/ferrari.glb
+Attribution supplied by the official Three.js car example:
+https://github.com/mrdoob/three.js/blob/r185/examples/webgl_materials_car.html
+Adaptations: paint, glass, wheel and lighting materials, driving animation.
+Ferrari names and marks belong to their respective owner. This project is not affiliated with Ferrari.
+
+Three.js and its examples: Copyright 2010–2026 Three.js authors, MIT.
+https://github.com/mrdoob/three.js/blob/r185/LICENSE
+Draco decoder: Google, Apache License 2.0; bundled via Three.js.
+https://github.com/google/draco/blob/main/LICENSE
+
+Procedural road, mountain meshes, pine trees, grass, rocks and traffic geometry
+are created in code for this project. Existing alpine ground texture is retained
+from the original Deadly Descent repository.

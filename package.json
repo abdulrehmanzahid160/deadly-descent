@@ -7,18 +7,20 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test:browser": "node scripts/verify.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
-    "three": "latest",
-    "vite": "latest",
     "react": "latest",
-    "react-dom": "latest"
+    "react-dom": "latest",
+    "three": "latest",
+    "vite": "latest"
   },
   "devDependencies": {
-    "eslint": "latest",
     "@eslint/js": "latest",
+    "@playwright/test": "^1.63.0",
+    "eslint": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-react-refresh": "latest",
     "globals": "latest"
